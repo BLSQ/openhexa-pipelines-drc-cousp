@@ -23,8 +23,8 @@ def era5_temperature_update(manual_run:bool):
 
     # Setup variables
     notebook_name = "DB_update_manualControl_temperature"
-    notebook_path = f"{workspace.files_path}/pipelines/data_precipitation_update/code"
-    out_notebook_path = f"{workspace.files_path}/pipelines/data_precipitation_update/papermill_outputs"
+    notebook_path = f"{workspace.files_path}/pipelines/data_temperature_update/code"
+    out_notebook_path = f"{workspace.files_path}/pipelines/data_temperature_update/papermill_outputs"
    
    # Set parameters
     parameters = {
