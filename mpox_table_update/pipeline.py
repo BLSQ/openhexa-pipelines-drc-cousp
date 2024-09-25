@@ -82,10 +82,10 @@ def run_update_with(nb_name:str, nb_path:str, out_nb_path:str, parameters:dict, 
             return True    
 
         except pm.exceptions.PapermillExecutionError as e:
-            current_run.log_error(f"Execution du notebook: {nb_full_path} a echoue! Papermill error: {e}") 
+            current_run.log_error(f"Execution du notebook: {nb_full_path} a echoue! Papermill error") 
             return False
         except Exception as e:
-            current_run.log_error(f"Execution du notebook: {nb_full_path} a echoue! Error: {e}") 
+            current_run.log_error(f"Execution du notebook: {nb_full_path} a echoue! Other Error ocurred {e}") 
             return False
             
     else:
