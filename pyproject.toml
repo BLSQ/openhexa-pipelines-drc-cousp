@@ -1,5 +1,5 @@
 [project]
-name = "openhexa-templates-ds"
+name = "openhexa-pipelines-drc-cousp"
 version = "0.1.0"
 description = "SNT pipelines maintained by Bluesquare Data Services team"
 readme = "README.md"
