@@ -26,9 +26,15 @@ def senes_table_update(force_run: bool):
     """Checks if new data is available and runs the update tasks if needed or if forced."""
     pipeline_path = Path(workspace.files_path) / "pipelines" / "senes_table_update"
     dataset_id = "senes-dataset"
-    update_data = should_import_data(pipeline_path=pipeline_path, dataset_id=dataset_id) or force_run
+    update_data = (
+        should_import_data(
+            dataset_id=dataset_id, timestamp_path=pipeline_path / "config" / "last_update.json"
+        )
+        or force_run
+    )
 
     if update_data:
+        current_run.log_info("New data version detected. Starting pipeline execution...")
         # Run SENES table update
         run_senes_table_update(pipeline_path=pipeline_path, dataset_id=dataset_id, senes_db_table="COD_SENES")
 
@@ -41,7 +47,7 @@ def senes_table_update(force_run: bool):
         current_run.log_info("No update needed. Skipping SENES table update.")
 
 
-def should_import_data(pipeline_path: Path, dataset_id: str) -> bool:
+def should_import_data(dataset_id: str, timestamp_path: Path) -> bool:
     """Check if new data is available by comparing the latest dataset version timestamp.
 
     Returns:
@@ -55,19 +61,14 @@ def should_import_data(pipeline_path: Path, dataset_id: str) -> bool:
 
     # read last run timestamp from file
     try:
-        last_update = read_json_file(pipeline_path / "config" / "last_update.json")
+        last_update = read_json_file(timestamp_path)
         last_update_str = last_update.get("LAST_UPDATE", "")
         last_update_dt = datetime.strptime(last_update_str, "%Y%m%d_%H%M") if last_update_str else None
     except Exception as e:
-        current_run.log_warning(f"Last update timestamp not found: Running update by default. Error: {e}")
+        current_run.log_warning(f"Error reading last update timestamp: Running update by default. Error: {e}")
         return True  # If we can't read the last update, assume we need to update
 
-    if not last_update_dt or new_version_dt > last_update_dt:
-        current_run.log_info("New data version detected. Update needed.")
-        return True
-
-    current_run.log_info("Data is up to date. No update needed.")
-    return False
+    return not last_update_dt or new_version_dt > last_update_dt
 
 
 def run_senes_table_update(pipeline_path: Path, dataset_id: str, senes_db_table: str = "COD_SENES") -> None:
@@ -98,6 +99,7 @@ def update_last_run_timestamp(timestamp_filename: Path, dataset_id: str) -> None
         )
     except Exception as e:
         current_run.log_error(f"Error updating last run timestamp: {e}")
+    current_run.log_info(f"Last run timestamp updated to: {timestamp.strftime('%Y%m%d_%H%M')}")
 
 
 if __name__ == "__main__":
