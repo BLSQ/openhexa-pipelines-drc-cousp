@@ -1,0 +1,3 @@
+adbc-driver-postgresql
+connectorx
+psycopg2-binary

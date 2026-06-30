@@ -1,0 +1,56 @@
+contexte:
+  - >-
+    La province de l'Ituri, située au Nord-Est de la République Démocratique du Congo, partage une frontière
+    longue et poreuse avec l'Ouganda et le Soudan du Sud. Depuis plus de deux décennies, elle est confrontée
+    à une crise humanitaire chronique liée aux conflits armés et aux déplacements récurrents de populations.
+    Sa population est estimée à plus de 8 millions d'habitants, dont plus d'un million de déplacés internes.
+    La zone de santé de Mongbwalu, considérée comme le point de départ de l'épidémie, est située dans le
+    territoire de Djugu à 70 km de Bunia. Cette zone se caractérise par la présence de groupes armés, des
+    mouvements fréquents de population vers l'Ouganda, et de nombreux chantiers miniers artisanaux attirant
+    des travailleurs migrants. En septembre 2018, la province de l'Ituri avait déjà été touchée par la 10ème
+    épidémie de MVE qui sévissait alors au Nord-Kivu.
+  - >-
+    L'épidémie actuelle, due au Bundibugyo ebolavirus, a été déclarée officiellement le 15 mai 2026 par le
+    Ministre de la Santé Publique. Les trois provinces touchées comptent une population totale estimée à près
+    de 15 millions d'habitants, avec des déplacements internes massifs et des flux transfrontaliers vers les
+    pays voisins.
+
+
+faits_saillants:
+  - Inauguration officielle du Centre de Traitement Ebola (CTE) normé.
+  - Réception de poches de sang pour les soins transfusionnels.
+
+actions_reponse:
+  coordination:
+    - Tenue de la réunion de coordination avec les sections.
+    - Participation aux réunions stratégiques au gouvernorat et au niveau provincial.
+  surveillance:
+    - Briefing des équipes de surveillance (alertes, investigations, suivi des contacts).
+    - Déploiement des équipes de surveillance dans les ZS en épidémie.
+  laboratoire:
+    - Mettre à jour le bilan des échantillons reçus / analysés et les confirmations du jour.
+  prise_en_charge:
+    - Accompagnement psychosocial des familles endeuillées et des cas suspects/confirmés.
+    - Interventions de santé mentale auprès des communautés (ménages, leaders, écoles).
+  crec:
+    - Activités de communication sur les risques et engagement communautaire.
+  pci_wash:
+    - Décontaminations, briefings PCI et dotation en kits WASH par ZS.
+  logistique:
+    - Identification du charroi automobile et des appuis partenaires.
+  securite:
+    - Décrire la situation sécuritaire dans les ZS touchées.
+
+defis:
+  - Difficulté de mobilité des équipes pour les investigations.
+  - Insuffisance des kits de prélèvement et de protection.
+
+recommandations:
+  - Renforcer les équipes d'intervention dans les ZS touchées.
+  - Rendre disponibles les moyens de déplacement aux équipes de terrain.
+  - Poursuivre le listage et le suivi des contacts dans toutes les ZS.
+
+contacts:
+  - ["Le Directeur Général de l'INSP", "Dr MWAMBA KAZADI Dieudonné", "dieudonne.mwamba@insp.cd", "+243 816 040 145"]
+  - ["Le Coordonnateur COU-SP", "Prof NGANDU Christian", "Christian.ngandu@insp.cd", "+243 998 091 915"]
+  - ["L'Incident Manager", "Prof Pierre AKILIMALI", "pierre.akilimali@insp.cd", "+243 815 800 288"]

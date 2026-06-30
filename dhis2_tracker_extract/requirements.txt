@@ -1,0 +1,7 @@
+openhexa-sdk>=2.21.0
+openhexa-toolbox>=2.11.1
+polars>=1.41.2
+pyarrow>=24.0.0
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+pandas>=2.0

@@ -1,0 +1,679 @@
+date_notif,zone_sante,province,sexe_norm,tranche_age,n_alertes,n_suspects,n_suspects_lien_epi,n_preleves,n_recus,n_analyses,n_echantillons_valides,n_confirmes,n_deces,n_deces_suspects,n_deces_confirmes,n_gueri
+2026-01-01T00:00:00.000000,ks Bulape,ks Kasai,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-03-06T00:00:00.000000,eq Djombo,eq Equateur,Feminin,0-4 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-03-08T00:00:00.000000,ks Bulape,ks Kasai,Masculin,25-44 ans,1,1,0,1,1,1,0,0,1,1,0,0
+2026-03-10T00:00:00.000000,ks Bulape,ks Kasai,Feminin,25-44 ans,1,1,1,1,0,0,0,0,1,1,0,0
+2026-04-06T00:00:00.000000,ks Mweka,ks Kasai,Feminin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-04-24T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-04-25T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-04-26T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-04-27T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-04-27T00:00:00.000000,nk Kibua,nk Nord Kivu,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,1
+2026-04-28T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,0,0,0,0,0,0
+2026-04-28T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-01T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-01T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,2,2,0,0,0,0,0,0,2,2,0,0
+2026-05-02T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,3,3,0,2,2,2,1,1,1,1,0,0
+2026-05-03T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,2,2,0,2,2,2,0,0,0,0,0,0
+2026-05-03T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-03T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,1,1,1,1,1,1,1,0,1,0
+2026-05-03T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-03T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-05T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-05T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-05T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-06T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-06T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-06T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-06T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-07T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-07T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,1,1,0,0,0,0,0,1,1,0,0
+2026-05-07T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,25-44 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-08T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-08T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-09T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-10T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-10T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,2,2,0,0,0,0,0,0,2,2,0,0
+2026-05-10T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,2,2,0,0,0,0,0,0,2,2,0,0
+2026-05-10T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-10T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-10T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-11T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-11T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-12T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,1,1,1,0,0,0,0,0,1,1,0,0
+2026-05-12T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-12T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,1,1,1,0,0,0,0,0,1,1,0,0
+2026-05-12T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-13T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,2,2,0,1,1,1,1,1,0,0,0,0
+2026-05-13T00:00:00.000000,Mongbwalu,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-13T00:00:00.000000,Mongbwalu,Ituri,Feminin,5-14 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-13T00:00:00.000000,Mongbwalu,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-13T00:00:00.000000,Mongbwalu,Ituri,Masculin,45-64 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-13T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,1,0,0,0,0,0,1,1,0,0
+2026-05-13T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,1,1,1,0,0,0,0,0,1,1,0,0
+2026-05-13T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-14T00:00:00.000000,Bambu,Ituri,Feminin,45-64 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-14T00:00:00.000000,Bambu,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-14T00:00:00.000000,Mongbwalu,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-14T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-14T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-14T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,3,3,0,2,2,2,1,1,1,1,0,0
+2026-05-15T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-15T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,1,1,1,0,0,0,0,0,1,1,0,0
+2026-05-15T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-15T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-15T00:00:00.000000,Logo,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-15T00:00:00.000000,Mongbwalu,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-15T00:00:00.000000,Mongbwalu,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-15T00:00:00.000000,Mongbwalu,Ituri,Feminin,5-14 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-15T00:00:00.000000,Mongbwalu,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-15T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,2,2,1,2,2,2,2,2,1,0,1,0
+2026-05-15T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-15T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-15T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,0,1,1,1,1,1,0,0,0,0
+2026-05-15T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-15T00:00:00.000000,nk Goma,nk Nord Kivu,Feminin,25-44 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-16T00:00:00.000000,Aungba,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-16T00:00:00.000000,Boga,Ituri,Masculin,65+ ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-16T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-16T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,2,2,0,1,1,1,1,1,0,0,0,0
+2026-05-17T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,2,2,2,1,1,1,1,0,0,0,0,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,6,5,0,5,5,5,5,1,1,1,0,0
+2026-05-16T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,3,3,0,2,2,2,2,2,0,0,0,0
+2026-05-16T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,5,5,0,2,2,2,2,1,2,2,0,0
+2026-05-16T00:00:00.000000,Drodro,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-16T00:00:00.000000,Logo,Ituri,Feminin,0-4 ans,1,1,1,1,1,1,1,0,1,1,0,0
+2026-05-16T00:00:00.000000,Mangala,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-16T00:00:00.000000,Mongbwalu,Ituri,Feminin,15-24 ans,2,2,1,1,1,1,0,0,0,0,0,0
+2026-05-16T00:00:00.000000,Mongbwalu,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-16T00:00:00.000000,Mongbwalu,Ituri,Feminin,5-14 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-16T00:00:00.000000,Mongbwalu,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-16T00:00:00.000000,Mongbwalu,Ituri,Masculin,45-64 ans,2,2,1,2,2,2,2,2,1,0,1,0
+2026-05-16T00:00:00.000000,Mongbwalu,Ituri,Masculin,5-14 ans,1,1,1,1,1,1,1,1,1,0,1,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,2,2,0,1,1,1,1,1,1,1,0,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-16T00:00:00.000000,Nizi,Ituri,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-16T00:00:00.000000,Nizi,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-16T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,1,1,1,1,1,0,0,0,0,0
+2026-05-16T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,2,2,1,2,2,2,2,1,0,0,0,0
+2026-05-16T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,1,1,1,1,1,1,1,1,1,0,1,0
+2026-05-16T00:00:00.000000,Nyankunde,Ituri,Masculin,15-24 ans,2,2,2,2,2,2,2,2,0,0,0,0
+2026-05-16T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,3,3,1,2,2,2,2,1,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,3,3,2,3,3,3,3,3,0,0,0,0
+2026-05-16T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,2,2,1,2,2,2,2,2,0,0,0,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,3,3,2,1,0,0,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,3,3,1,2,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,3,3,2,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,2,2,1,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-16T00:00:00.000000,nk Butembo,nk Nord Kivu,Feminin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,1
+2026-05-16T00:00:00.000000,nk Karisimbi,nk Nord Kivu,Feminin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,1
+2026-05-16T00:00:00.000000,nk Karisimbi,nk Nord Kivu,Masculin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-16T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,Aru,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,Bambu,Ituri,Feminin,65+ ans,2,2,1,1,1,1,1,0,0,0,0,0
+2026-05-17T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,4,4,1,3,3,3,3,2,0,0,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,4,4,2,2,2,2,2,2,0,0,0,0
+2026-05-17T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,2,2,1,1,1,1,1,1,0,0,0,0
+2026-05-17T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,4,4,0,2,2,2,2,1,0,0,0,0
+2026-05-17T00:00:00.000000,Bunia,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,4,4,0,2,1,1,1,0,0,0,0,0
+2026-05-17T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,5,5,1,0,0,0,0,0,3,3,0,0
+2026-05-17T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,2,2,1,1,1,1,0,0,1,1,0,0
+2026-05-17T00:00:00.000000,Komanda,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Feminin,0-4 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Feminin,15-24 ans,2,2,0,2,2,2,2,2,1,0,1,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Feminin,25-44 ans,5,5,0,4,3,3,2,1,1,1,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,0,1,1,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Masculin,15-24 ans,2,2,0,2,1,1,1,1,0,0,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Masculin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Masculin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,Mongbwalu,Ituri,Masculin,65+ ans,2,2,0,2,1,1,1,1,1,0,1,0
+2026-05-17T00:00:00.000000,Nizi,Ituri,Feminin,0-4 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-17T00:00:00.000000,Nyankunde,Ituri,Masculin,15-24 ans,1,1,1,1,1,1,1,0,0,0,0,0
+2026-05-17T00:00:00.000000,nk Butembo,nk Nord Kivu,Masculin,15-24 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-17T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,65+ ans,3,1,1,1,0,0,0,0,0,0,0,0
+2026-05-17T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,3,3,0,2,2,2,2,1,1,0,1,0
+2026-05-19T00:00:00.000000,Tchomia,Ituri,Masculin,65+ ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,1,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,9,8,5,2,2,2,1,1,1,0,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,2,2,1,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,7,7,0,2,2,2,2,2,1,1,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-21T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,6,6,5,4,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,6,6,0,2,2,2,2,2,1,1,0,0
+2026-05-18T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,2,1,0,1,1,1,1,1,0,0,0,0
+2026-05-18T00:00:00.000000,Kilo,Ituri,Feminin,25-44 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,2,2,1,2,2,2,2,2,0,0,0,0
+2026-05-18T00:00:00.000000,Lita,Ituri,Masculin,45-64 ans,2,2,2,2,1,1,1,0,0,0,0,0
+2026-05-18T00:00:00.000000,Mandima,Ituri,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,Mongbwalu,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-18T00:00:00.000000,Mongbwalu,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-18T00:00:00.000000,Mongbwalu,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-18T00:00:00.000000,Mongbwalu,Ituri,Masculin,25-44 ans,2,2,0,2,1,1,1,1,2,1,1,0
+2026-05-18T00:00:00.000000,Mongbwalu,Ituri,Masculin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,4,4,4,4,2,2,2,2,0,0,0,0
+2026-05-18T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-18T00:00:00.000000,Nyankunde,Ituri,Feminin,65+ ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,Nyankunde,Ituri,Masculin,15-24 ans,1,1,1,1,1,1,1,0,0,0,0,0
+2026-05-18T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,2,2,1,1,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,3,3,1,3,2,2,2,0,0,0,0,0
+2026-05-18T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-18T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,3,3,0,3,2,2,2,0,2,2,0,0
+2026-05-18T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-18T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,7,7,2,5,5,5,5,4,3,1,2,0
+2026-05-18T00:00:00.000000,nk Butembo,nk Nord Kivu,Masculin,45-64 ans,1,1,0,1,1,1,1,0,0,0,0,1
+2026-05-18T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,25-44 ans,2,1,0,1,0,0,0,0,1,1,0,0
+2026-05-18T00:00:00.000000,nk Karisimbi,nk Nord Kivu,Feminin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,3,2,0,2,1,1,1,1,2,1,1,0
+2026-05-18T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,3,3,0,2,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Mongbwalu,Ituri,Masculin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Mongbwalu,Ituri,Masculin,5-14 ans,2,2,0,2,2,2,2,1,0,0,0,0
+2026-05-18T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,5-14 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,15-24 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-18T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Aru,Ituri,Masculin,45-64 ans,2,2,0,1,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,4,2,0,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Nyankunde,Ituri,Masculin,0-4 ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-19T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,3,3,2,3,2,2,2,1,0,0,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,3,3,0,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,3,1,0,0,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Feminin,5-14 ans,2,2,1,0,1,1,1,1,1,1,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,3,3,0,2,2,2,2,1,1,0,1,0
+2026-05-19T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,2,2,0,0,0,0,0,0,1,1,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,5,5,0,4,3,3,2,2,1,0,1,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,7,7,2,2,3,3,2,2,1,1,0,0
+2026-05-19T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,4,4,1,2,2,2,2,0,1,1,0,0
+2026-05-19T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,5,5,2,3,2,2,2,1,0,0,0,0
+2026-05-19T00:00:00.000000,Kilo,Ituri,Feminin,15-24 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,Kilo,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-19T00:00:00.000000,Kilo,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-19T00:00:00.000000,Kilo,Ituri,Masculin,25-44 ans,2,2,0,1,1,1,1,0,0,0,0,0
+2026-05-19T00:00:00.000000,Mongbwalu,Ituri,Feminin,25-44 ans,2,2,0,2,1,1,1,0,0,0,0,0
+2026-05-19T00:00:00.000000,Mongbwalu,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,Mongbwalu,Ituri,Masculin,25-44 ans,2,2,0,2,1,1,1,1,0,0,0,0
+2026-05-19T00:00:00.000000,nk Butembo,nk Nord Kivu,Masculin,15-24 ans,2,2,2,0,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,nk Butembo,nk Nord Kivu,Masculin,25-44 ans,1,1,0,1,1,1,1,0,1,1,0,0
+2026-05-19T00:00:00.000000,nk Goma,nk Nord Kivu,Feminin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,nk Goma,nk Nord Kivu,Feminin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Nyankunde,Ituri,Feminin,5-14 ans,2,2,2,2,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,6,6,4,5,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,3,3,3,1,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,nk Goma,nk Nord Kivu,Feminin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,15-24 ans,2,2,0,2,0,0,0,0,1,1,0,0
+2026-05-19T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,25-44 ans,2,2,0,2,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,1,2,1,1,1,0,0,0,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,2,1,0,1,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,0,2,1,1,1,1,1,0,1,0
+2026-05-19T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,45-64 ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-19T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,2,2,0,2,1,1,1,1,1,0,1,0
+2026-05-19T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,nk Oicha,nk Nord Kivu,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-19T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Masculin,15-24 ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-19T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Masculin,25-44 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-20T00:00:00.000000,Aru,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-20T00:00:00.000000,Bambu,Ituri,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,3,2,1,0,0,0,0,0,2,1,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,9,7,2,2,2,2,2,1,2,2,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,1,1,1,0,0,0,0,0,1,1,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,4,4,1,2,1,1,1,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,2,2,1,0,0,0,0,0,1,1,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,2,2,1,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,3,2,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,11,9,1,4,3,3,3,3,2,2,0,0
+2026-05-22T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,3,3,1,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,2,2,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-20T00:00:00.000000,Drodro,Ituri,Masculin,5-14 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-20T00:00:00.000000,Kilo,Ituri,Feminin,15-24 ans,2,2,1,2,2,2,2,1,0,0,0,0
+2026-05-20T00:00:00.000000,Kilo,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-20T00:00:00.000000,Mambasa,Ituri,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Mangala,Ituri,Feminin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Mongbwalu,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Nizi,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-20T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-20T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,13,12,3,8,3,3,3,2,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,1,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,0,2,2,2,2,2,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,8,7,1,6,2,2,2,1,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,5,5,4,4,1,1,1,0,0,0,0,0
+2026-05-20T00:00:00.000000,Tchomia,Ituri,Masculin,25-44 ans,2,1,0,1,1,1,1,0,0,0,0,0
+2026-05-22T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,3,3,1,1,1,1,1,0,0,0,0,0
+2026-05-22T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,2,2,1,0,0,0,0,0,1,1,0,0
+2026-05-22T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,4,4,1,2,1,1,1,1,0,0,0,0
+2026-05-20T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,3,3,1,3,3,3,3,0,0,0,0,0
+2026-05-20T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-20T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Feminin,15-24 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-20T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Masculin,25-44 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-21T00:00:00.000000,Bambu,Ituri,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,3,3,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,5,5,2,2,2,2,2,2,2,0,2,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,8,7,1,1,1,1,1,1,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,2,1,0,0,0,0,0,0,2,1,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Lubero,nk Nord Kivu,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,3,3,1,1,1,1,1,0,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,4,4,0,2,2,2,2,1,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,2,1,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Mongbwalu,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-21T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,5,4,0,1,0,0,0,0,3,3,0,0
+2026-05-21T00:00:00.000000,Gety,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-21T00:00:00.000000,Kilo,Ituri,Feminin,45-64 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-21T00:00:00.000000,Komanda,Ituri,Masculin,25-44 ans,2,1,0,1,1,1,1,1,0,0,0,0
+2026-05-21T00:00:00.000000,Lita,Ituri,Feminin,25-44 ans,1,1,1,1,0,0,0,0,1,1,0,0
+2026-05-21T00:00:00.000000,Nizi,Ituri,Feminin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,3,3,2,3,1,1,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,15-24 ans,2,1,0,1,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-21T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,3,3,1,2,1,1,1,0,1,1,0,0
+2026-05-21T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-21T00:00:00.000000,sk Kadutu,sk Sud Kivu,Feminin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-21T00:00:00.000000,sk Nyantende,sk Sud Kivu,Masculin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Bambu,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-22T00:00:00.000000,Bambu,Ituri,Masculin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,2,2,0,1,1,1,1,0,0,0,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,3,3,0,2,2,2,1,1,0,0,0,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,2,2,1,1,1,1,1,1,0,0,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,3,2,0,1,1,1,1,0,0,0,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,2,2,0,0,0,0,0,0,1,1,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,7,7,0,3,2,2,2,2,2,1,1,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,6,6,0,1,1,1,1,0,1,1,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,4,4,0,3,3,3,3,3,1,1,0,0
+2026-05-22T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Drodro,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Mongbwalu,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-22T00:00:00.000000,Mongbwalu,Ituri,Feminin,45-64 ans,2,2,0,2,2,2,2,1,0,0,0,0
+2026-05-22T00:00:00.000000,Mongbwalu,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-22T00:00:00.000000,Mongbwalu,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-22T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,2,2,1,2,0,0,0,0,1,1,0,0
+2026-05-22T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-22T00:00:00.000000,Nyankunde,Ituri,Feminin,65+ ans,2,2,0,2,2,2,2,0,0,0,0,0
+2026-05-22T00:00:00.000000,Nyankunde,Ituri,Masculin,0-4 ans,1,1,0,1,1,1,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,Nyankunde,Ituri,Masculin,15-24 ans,2,2,1,1,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,nk Goma,nk Nord Kivu,Feminin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,2,2,0,1,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Lita,Ituri,Masculin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-22T00:00:00.000000,sk Bagira,sk Sud Kivu,Feminin,65+ ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-23T00:00:00.000000,Ariwara,Ituri,Feminin,45-64 ans,1,0,0,0,0,0,0,0,1,0,0,0
+2026-05-23T00:00:00.000000,Bambu,Ituri,Masculin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Bambu,Ituri,Masculin,5-14 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-23T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,3,2,0,1,1,1,1,1,0,0,0,0
+2026-05-23T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-23T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,4,4,4,4,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-23T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,1,0,1,1,1,1,1,0,0,0,0
+2026-05-23T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,2,1,1,0,0,0,0,0,1,1,0,0
+2026-05-23T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Bunia,Ituri,Feminin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,4,1,0,0,0,0,0,0,1,0,0,0
+2026-05-23T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,3,2,0,1,1,1,1,1,0,0,0,0
+2026-05-23T00:00:00.000000,Kilo,Ituri,Feminin,15-24 ans,2,2,1,2,2,2,2,1,0,0,0,0
+2026-05-23T00:00:00.000000,Kilo,Ituri,Feminin,45-64 ans,2,2,1,1,1,1,1,0,0,0,0,0
+2026-05-23T00:00:00.000000,Kilo,Ituri,Masculin,25-44 ans,1,1,1,1,1,1,1,0,0,0,0,0
+2026-05-23T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,15-24 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-23T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,4,3,1,2,3,3,1,1,0,0,0,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,7,7,2,3,2,2,2,2,2,1,1,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,3,2,1,0,0,0,0,0,1,0,0,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,5,5,1,0,0,0,0,0,1,1,0,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,2,2,0,0,0,0,0,0,1,1,0,0
+2026-05-24T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,Lita,Ituri,Feminin,5-14 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-24T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,3,3,2,3,1,1,1,1,1,1,0,0
+2026-05-24T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,3,3,3,2,0,0,0,0,1,1,0,0
+2026-05-24T00:00:00.000000,Nyarambe,Ituri,Feminin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,5,2,1,0,0,0,0,0,1,0,0,0
+2026-05-24T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,0,1,2,2,1,1,0,0,0,0
+2026-05-24T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,2,2,1,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,1,1,1,1,1,0,0,0,0,0
+2026-05-24T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,3,3,2,3,2,2,2,2,0,0,0,0
+2026-05-24T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,0-4 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-24T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,kn Gombe,kn Kinshasa,Feminin,25-44 ans,1,1,0,1,1,1,1,0,1,1,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,6,4,1,0,0,0,0,0,1,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,3,2,0,1,1,1,1,1,2,1,1,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Feminin,5-14 ans,4,3,0,0,0,0,0,0,1,1,0,0
+2026-05-25T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Feminin,65+ ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,2,2,0,1,1,1,1,1,0,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,5,4,0,2,2,2,2,2,0,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,5,5,1,0,0,0,0,0,2,2,0,0
+2026-05-25T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Masculin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,3,2,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,2,2,1,0,0,0,0,0,1,1,0,0
+2026-05-25T00:00:00.000000,Mambasa,Ituri,Masculin,25-44 ans,3,3,0,1,0,0,0,0,2,2,0,0
+2026-05-25T00:00:00.000000,Mongbwalu,Ituri,Feminin,15-24 ans,1,1,1,1,1,1,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,3,3,2,3,2,2,1,0,0,0,0,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,2,2,1,2,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,2,2,2,2,1,1,1,1,1,0,1,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Masculin,15-24 ans,1,1,1,1,1,1,1,0,0,0,0,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,2,2,1,2,1,1,1,0,0,0,0,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,2,2,0,2,2,2,1,1,1,0,1,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Masculin,5-14 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-25T00:00:00.000000,Nyankunde,Ituri,Masculin,65+ ans,1,1,1,1,1,1,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,6,6,2,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,1,0,0,0,0,0,1,1,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,1,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,2,2,0,1,1,1,1,0,0,0,0,0
+2026-05-25T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-25T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Masculin,45-64 ans,2,2,2,1,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,kn Gombe,kn Kinshasa,Masculin,45-64 ans,1,1,0,1,1,1,1,0,1,1,0,0
+2026-05-25T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,0-4 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,2,2,0,1,1,1,1,1,1,0,1,0
+2026-05-25T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,0-4 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,15-24 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,5-14 ans,4,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,0-4 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,5-14 ans,5,0,0,0,0,0,0,0,0,0,0,0
+2026-05-25T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Feminin,25-44 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,4,1,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,12,7,1,0,0,0,0,0,1,1,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,5,4,1,1,1,1,1,1,0,0,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,9,5,3,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,8,5,2,1,1,1,1,1,2,2,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,3,2,1,0,0,0,0,0,1,1,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,2,1,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,1,0,0,0,0,0,0,0,1,0,0,0
+2026-05-26T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,2,2,0,2,2,2,2,0,0,0,0,0
+2026-05-26T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-26T00:00:00.000000,Nyankunde,Ituri,Feminin,5-14 ans,1,1,1,1,1,1,1,0,1,1,0,0
+2026-05-26T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,1,1,1,1,1,1,1,0,0,0,0,0
+2026-05-26T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,1,1,0,1,1,1,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Nyankunde,Ituri,Masculin,5-14 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,4,4,2,0,0,0,0,0,1,1,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,5,5,4,1,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,3,3,0,0,0,0,0,0,1,1,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,2,2,1,1,1,1,1,1,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,kn Limete,kn Kinshasa,Masculin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,65+ ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-26T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,2,1,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,4,2,1,0,0,0,0,0,1,0,0,0
+2026-05-27T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,0-4 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,8,7,4,1,1,1,1,1,2,1,1,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,7,7,2,2,2,2,2,2,3,2,1,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,2,1,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,7,7,2,5,5,5,5,0,0,0,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,3,3,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,6,5,0,1,1,1,1,1,2,2,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,3,3,0,0,0,0,0,0,2,2,0,0
+2026-05-27T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,2,2,0,1,1,1,1,1,1,0,1,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,2,2,2,1,1,1,1,1,1,0,1,0
+2026-05-27T00:00:00.000000,Nizi,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-27T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,1,1,1,1,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-27T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,2,2,2,2,2,2,1,1,0,0,0,0
+2026-05-27T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,4,2,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,3,3,0,1,1,1,1,1,1,1,0,0
+2026-05-27T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,2,2,2,0,0,0,0,0,1,1,0,0
+2026-05-27T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,2,2,2,2,2,2,2,2,0,0,0,0
+2026-05-27T00:00:00.000000,kn Barumbu,kn Kinshasa,Masculin,25-44 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,kn Limete,kn Kinshasa,Masculin,25-44 ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-27T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,2,2,0,1,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,5-14 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,0-4 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,5-14 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-27T00:00:00.000000,sk Nyangezi,sk Sud Kivu,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Bambu,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,3,3,0,3,3,3,3,2,0,0,0,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,5,5,2,0,0,0,0,0,1,1,0,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,9,9,3,2,2,2,2,1,1,0,1,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,4,4,4,4,2,2,2,2,0,0,0,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,3,3,0,1,1,1,1,1,0,0,0,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,3,3,0,2,2,2,2,1,2,1,1,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,4,3,1,2,2,2,2,1,1,0,0,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,3,3,1,0,0,0,0,0,1,1,0,0
+2026-05-29T00:00:00.000000,Nyankunde,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,4,4,0,2,2,2,2,2,0,0,0,0
+2026-05-28T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Mambasa,Ituri,Masculin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Nizi,Ituri,Masculin,0-4 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-28T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,2,2,0,2,1,1,1,0,1,1,0,0
+2026-05-28T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Nyankunde,Ituri,Masculin,0-4 ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-28T00:00:00.000000,Nyankunde,Ituri,Masculin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,3,3,0,2,2,2,2,1,1,0,1,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,4,4,2,3,3,3,3,1,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,0,0,0,0,0,0,1,1,0,0
+2026-05-28T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Goma,nk Nord Kivu,Masculin,45-64 ans,3,2,0,0,0,0,0,0,2,2,0,0
+2026-05-28T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,25-44 ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-28T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,0-4 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,2,2,0,2,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Nyankunde,Ituri,Masculin,0-4 ans,1,1,1,1,0,0,0,0,1,1,0,0
+2026-05-29T00:00:00.000000,Nyankunde,Ituri,Masculin,15-24 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,1,1,1,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-28T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Bambu,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Bambu,Ituri,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Bambu,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,6,6,2,2,2,2,2,2,0,0,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,2,2,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,4,4,2,1,0,0,0,0,1,1,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,3,3,1,1,1,1,1,1,1,1,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,6,6,2,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,4,3,2,0,0,0,0,0,1,1,0,0
+2026-05-29T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,2,2,0,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,2,2,0,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Drodro,Ituri,Masculin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,Fataki,Ituri,Feminin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Lita,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Nizi,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-29T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-29T00:00:00.000000,kn Kasa Vubu,kn Kinshasa,Masculin,65+ ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,2,2,0,2,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-05-29T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,65+ ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Lubero,nk Nord Kivu,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,25-44 ans,2,0,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,45-64 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-29T00:00:00.000000,nk Pinga,nk Nord Kivu,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Bambu,Ituri,Feminin,0-4 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Bambu,Ituri,Feminin,15-24 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Bambu,Ituri,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Bambu,Ituri,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,5,5,1,0,0,0,0,0,2,2,0,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,9,8,1,3,3,3,3,3,1,0,1,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,3,2,0,0,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,4,3,0,3,3,3,3,3,0,0,0,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,3,3,1,0,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,8,7,2,5,5,5,5,5,3,0,2,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,6,5,2,2,2,2,2,2,1,1,0,0
+2026-05-30T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,4,4,0,3,3,3,3,3,0,0,0,0
+2026-05-30T00:00:00.000000,Lita,Ituri,Feminin,25-44 ans,2,2,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Mongbwalu,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Mongbwalu,Ituri,Masculin,25-44 ans,2,2,0,2,2,2,2,2,2,0,2,0
+2026-05-30T00:00:00.000000,Nizi,Ituri,Feminin,45-64 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Nizi,Ituri,Masculin,65+ ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-30T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,3,3,0,3,3,3,3,2,0,0,0,0
+2026-05-30T00:00:00.000000,Nyankunde,Ituri,Masculin,0-4 ans,1,1,0,1,1,1,1,0,0,0,0,0
+2026-05-30T00:00:00.000000,Nyankunde,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,4,4,3,1,1,1,1,1,1,0,1,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Feminin,15-24 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,5,5,2,2,2,2,2,2,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Feminin,45-64 ans,2,2,2,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,3,3,1,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,3,3,1,3,3,3,3,2,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Masculin,0-4 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,7,7,3,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,3,2,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,Rwampara,Ituri,Masculin,65+ ans,3,3,0,3,3,3,3,3,1,0,1,0
+2026-05-30T00:00:00.000000,Tchomia,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-30T00:00:00.000000,kn Kalamu 2,kn Kinshasa,Masculin,15-24 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,kn Limete,kn Kinshasa,Masculin,45-64 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,65+ ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,2,2,0,2,0,0,0,0,0,0,0,0
+2026-05-30T00:00:00.000000,nk Oicha,nk Nord Kivu,Masculin,0-4 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Aungba,Ituri,Feminin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-31T00:00:00.000000,Bambu,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,4,4,0,1,1,1,1,1,0,0,0,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,2,2,0,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,3,3,1,1,1,1,1,1,1,1,0,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,2,2,1,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,3,3,1,1,1,1,1,1,1,0,1,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,2,2,0,0,0,0,0,0,1,1,0,0
+2026-05-31T00:00:00.000000,Bunia,Ituri,Masculin,65+ ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-05-31T00:00:00.000000,Nizi,Ituri,Feminin,15-24 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-31T00:00:00.000000,Nizi,Ituri,Masculin,25-44 ans,1,1,0,1,1,1,1,1,0,0,0,0
+2026-05-31T00:00:00.000000,Nizi,Ituri,Masculin,65+ ans,1,1,0,1,1,1,1,1,1,0,1,0
+2026-05-31T00:00:00.000000,Nyankunde,Ituri,Feminin,0-4 ans,2,2,1,2,0,0,0,0,1,1,0,0
+2026-05-31T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Nyankunde,Ituri,Feminin,25-44 ans,6,6,5,6,0,0,0,0,1,1,0,0
+2026-05-31T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,3,3,0,1,1,1,1,1,2,1,1,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,6,6,3,1,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,4,4,2,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Feminin,65+ ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,2,2,0,0,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,5,5,0,0,0,0,0,0,1,1,0,0
+2026-05-31T00:00:00.000000,Rwampara,Ituri,Masculin,45-64 ans,4,3,0,1,1,1,1,1,2,2,0,0
+2026-05-31T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-05-31T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Masculin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,5,3,1,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,4,3,2,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,3,2,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Bunia,Ituri,Feminin,65+ ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Bunia,Ituri,Masculin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,6,6,0,0,0,0,0,0,2,2,0,0
+2026-06-01T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,3,3,2,3,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Nyankunde,Ituri,Feminin,65+ ans,1,1,0,1,0,0,0,0,1,1,0,0
+2026-06-01T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Rwampara,Ituri,Feminin,0-4 ans,2,2,1,1,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Rwampara,Ituri,Feminin,25-44 ans,2,2,1,0,0,0,0,0,1,1,0,0
+2026-06-01T00:00:00.000000,Rwampara,Ituri,Feminin,5-14 ans,1,1,0,0,0,0,0,0,1,1,0,0
+2026-06-01T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Rwampara,Ituri,Masculin,25-44 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,Rwampara,Ituri,Masculin,5-14 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,nk Katwa,nk Nord Kivu,Masculin,15-24 ans,2,2,0,2,0,0,0,0,2,2,0,0
+2026-06-01T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,15-24 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-06-01T00:00:00.000000,nk Nyiragongo,nk Nord Kivu,Feminin,25-44 ans,1,0,0,0,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Bunia,Ituri,Feminin,0-4 ans,1,1,0,0,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Bunia,Ituri,Feminin,15-24 ans,1,1,1,0,0,0,0,0,1,1,0,0
+2026-06-02T00:00:00.000000,Bunia,Ituri,Feminin,25-44 ans,4,3,1,0,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Bunia,Ituri,Feminin,45-64 ans,1,1,1,0,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Bunia,Ituri,Masculin,15-24 ans,2,2,0,0,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Bunia,Ituri,Masculin,25-44 ans,2,1,0,0,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Bunia,Ituri,Masculin,45-64 ans,2,1,0,0,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Nizi,Ituri,Masculin,15-24 ans,1,0,0,0,0,0,0,0,1,0,0,0
+2026-06-02T00:00:00.000000,Nyankunde,Ituri,Feminin,15-24 ans,2,2,1,1,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Nyankunde,Ituri,Feminin,45-64 ans,2,2,2,2,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,Nyankunde,Ituri,Masculin,25-44 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-06-02T00:00:00.000000,nk Katwa,nk Nord Kivu,Feminin,25-44 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-06-22T00:00:00.000000,Bambu,Ituri,Masculin,5-14 ans,1,1,0,1,0,0,0,0,0,0,0,0
+2026-06-25T00:00:00.000000,sk Miti Murhesa,sk Sud Kivu,Masculin,5-14 ans,1,1,1,1,0,0,0,0,0,0,0,0
+2026-06-28T00:00:00.000000,Rwampara,Ituri,Masculin,15-24 ans,1,1,0,1,1,1,1,0,0,0,0,0
