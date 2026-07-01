@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# SitRep generated artifacts (arborescence data/ réorganisée)
+data/generate_files/SitRep_MVE_RDC_*.docx
+data/_sitrep_assets/
+data/templates/*.bak.docx
+
+# Fichiers de verrou Word et artefacts macOS
+~$*
+.DS_Store
