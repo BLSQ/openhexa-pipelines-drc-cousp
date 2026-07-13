@@ -111,6 +111,8 @@ def _fill_title_number(doc: DocumentT, data: SitRepData) -> None:
     au format ``jj/mm/aaaa``.
     """
     titre = f"SitRep N°{data.sitrep_number}/{config.INCIDENT}_{data.reporting_end:%d/%m/%Y}"
+    if data.scope_label:
+        titre = f"{titre} — {data.scope_label}"
     found = False
     for t in doc.element.iter(_TAG_T):
         if t.text and "[[TITRE_NUMERO]]" in t.text:

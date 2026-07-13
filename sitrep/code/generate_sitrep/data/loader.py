@@ -146,6 +146,46 @@ def _clean(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def canon_zone(name: str) -> str:
+    """Canonise un nom de ZS comme ``_clean`` (préfixe + suffixe « Zone de Santé »).
+
+    Reproduit exactement la normalisation appliquée à la colonne ``zone_sante``
+    afin qu'une valeur choisie par l'utilisateur (nom brut du tracker) matche les
+    valeurs déjà nettoyées du DataFrame.
+
+    Returns:
+        str: Le nom de ZS canonique.
+    """
+    return geo.bare_name(name, suffix=config.SHAPE_NAME_SUFFIX)
+
+
+def filter_zones_sante(df: pl.DataFrame, zones: list[str] | None) -> pl.DataFrame:
+    """Restreint l'extraction aux zones de santé demandées (canonisées).
+
+    ``zones`` vide/``None`` → DataFrame inchangé (SitRep national). Les noms
+    fournis **et** la colonne géographique sont canonisés (préfixe province +
+    suffixe « Zone de Santé ») avant comparaison : la fonction matche donc aussi
+    bien un DataFrame déjà nettoyé (colonne ``zone_sante``) qu'une extraction
+    brute (colonne ``level_3_name``, noms préfixés/suffixés). Les zones inconnues
+    ne matchent aucune ligne (signalées par l'appelant via le décompte).
+
+    Returns:
+        pl.DataFrame: Le sous-ensemble filtré (ou ``df`` intact si aucun choix).
+    """
+    if not zones:
+        return df
+    canon = sorted({canon_zone(z) for z in zones if z and z.strip()})
+    col = next((c for c in ("zone_sante", "level_3_name") if c in df.columns), None)
+    if not canon or col is None:
+        return df
+    col_canon = (
+        geo.strip_prefix_expr(col)
+        .str.replace(config.SHAPE_NAME_SUFFIX, "", literal=True)
+        .str.strip_chars()
+    )
+    return df.filter(col_canon.is_in(canon))
+
+
 def date_anomalies(df: pl.DataFrame) -> dict[str, dict]:
     """Repère (sans filtrer) les dates hors plage plausible, pour les signaler.
 
