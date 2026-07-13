@@ -29,6 +29,7 @@ def compute(
     period_days: int = 2,
     publication_date: date | None = None,
     sitrep_number: str = config.SITREP_NUMBER,
+    scope_label: str | None = None,
 ) -> SitRepData:
     """Calcule l'ensemble des indicateurs du SitRep.
 
@@ -378,5 +379,6 @@ def compute(
         surveillance_indics=surveillance_indics,
         labo_indics=labo_indics,
         prise_en_charge_indics=prise_en_charge_indics,
+        scope_label=scope_label,
         raw=cum,
     )
