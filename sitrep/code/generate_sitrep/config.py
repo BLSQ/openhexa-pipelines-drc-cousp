@@ -122,6 +122,9 @@ SHAPE_PREFIX_TO_PROVINCE = {
 
 SHAPE_NAME_SUFFIX = " Zone de Santé"
 
+ZONES_CHOICES_FILE = "pipelines/sitrep/data/zones_sante_affectees.csv"
+ZONES_CHOICES_COLUMN = "zone_sante"
+
 EPIDEMIC_PROVINCES = ("Ituri", "Nord-Kivu")
 
 AGE_ORDER = ["0-4 ans", "5-17 ans", "18-29 ans", "30-49 ans", "50 ans et plus"]

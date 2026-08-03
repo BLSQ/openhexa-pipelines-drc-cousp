@@ -19,6 +19,7 @@ from openhexa.sdk import (
     pipeline,
     workspace,
 )
+from openhexa.sdk.pipelines.parameter import ChoicesFromFile
 
 from data import build_definitive_data
 
@@ -40,6 +41,18 @@ from data import build_definitive_data
     required=False,
 )
 @parameter(
+    "zone_sante",
+    type=str,
+    name="Zone(s) de santé",
+    help=(
+        "Restreint le SitRep aux zones de santé choisies (liste alimentée par le "
+        "pipeline d'extraction). Vide = rapport national."
+    ),
+    choices=ChoicesFromFile("pipelines/sitrep/data/zones_sante_affectees.csv", column="zone_sante"),
+    multiple=True,
+    required=False,
+)
+@parameter(
     "dst_file",
     type=str,
     name="Fichier de sortie (.docx)",
@@ -56,6 +69,7 @@ from data import build_definitive_data
 def generate_sitrep_pipeline(
     reporting_end: str | None = None,
     period_days: int = config.REPORTING_PERIOD_DAYS,
+    zone_sante: list[str] | None = None,
     dst_file: str | None = None,
     dst_dataset: Dataset | None = None,
 ) -> None:
@@ -65,6 +79,9 @@ def generate_sitrep_pipeline(
     current_run.log_info(f"Lecture de la table « {config.AGG_TABLE} » (base du workspace)…")
     df = build_definitive_data()
 
+    if zone_sante:
+        current_run.log_info(f"Portée demandée : {', '.join(zone_sante)}")
+
     output_path = Path(dst_file) if dst_file else None
     out, data = build_sitrep(
         df=df,
@@ -73,6 +90,7 @@ def generate_sitrep_pipeline(
         reporting_end=rep_end,
         period_days=period_days,
         sitrep_number=config.SITREP_NUMBER,
+        zones_sante=zone_sante,
         assets_dir=Path(workspace.files_path) / "pipelines/sitrep/assets",
         logger=current_run.log_info,
     )
