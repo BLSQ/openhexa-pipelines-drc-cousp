@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal
 
+import adbc_driver_postgresql.dbapi as pg_dbapi
 import config
 import numpy as np
 import pandas as pd
@@ -332,9 +333,10 @@ def consolidate_line_list(
     }
     line_list = line_list.rename(de_vers_nom)
 
-    # Data elements jamais collectés sur la période → colonnes vides
+    # Data elements jamais collectés sur la période → colonnes vides.
+    # Typées Utf8 (et non Null) : ADBC/PostgreSQL rejette le type Arrow « na ».
     de_absents = [nom for nom in config.DICO_DE_MAPPING if nom not in line_list.columns]
-    line_list = line_list.with_columns(pl.lit(None).alias(nom) for nom in de_absents)
+    line_list = line_list.with_columns(pl.lit(None, dtype=pl.Utf8).alias(nom) for nom in de_absents)
 
     line_list = line_list.select(["tracked_entity_id", *config.RENAME_MAP.values()])
     line_list = line_list.join(
@@ -674,6 +676,58 @@ def aggregate_indicators(
     return aggregated
 
 
+def ingerer_adbc(
+    frame: pl.DataFrame,
+    table_name: str,
+    db_url: str,
+    mode: Literal["append", "replace", "fail"],
+) -> None:
+    """Ingère un DataFrame via ADBC en forçant les chaînes en `large_string`.
+
+    Args:
+        frame: Table à publier.
+        table_name: Table de staging cible.
+        db_url: URI de connexion à la base du workspace.
+        mode: Stratégie si la table existe (vocabulaire polars).
+    """
+    modes: dict[str, Literal["create", "replace", "create_append"]] = {
+        "fail": "create",
+        "replace": "replace",
+        "append": "create_append",
+    }
+
+    table_arrow = frame.to_arrow(compat_level=pl.CompatLevel.oldest())
+    with pg_dbapi.connect(db_url) as conn, conn.cursor() as cursor:
+        cursor.adbc_ingest(table_name, table_arrow, mode=modes[mode])
+        conn.commit()
+
+
+def to_polars_for_adbc(df: pd.DataFrame) -> pl.DataFrame:
+    """Convertit en Polars en neutralisant les types qu'ADBC ne sait pas écrire.
+
+    Args:
+        df: Table pandas à publier.
+
+    Returns:
+        Le DataFrame Polars prêt pour l'ingestion ADBC.
+    """
+    frame = pl.DataFrame(df)
+
+    vides = [nom for nom, dtype in frame.schema.items() if dtype == pl.Null]
+    if vides:
+        current_run.log_warning(f"Colonnes entièrement vides castées en texte : {vides}.")
+        frame = frame.with_columns(pl.col(nom).cast(pl.Utf8) for nom in vides)
+
+    nanosecondes = [
+        nom
+        for nom, dtype in frame.schema.items()
+        if isinstance(dtype, pl.Datetime) and dtype.time_unit == "ns"
+    ]
+    if nanosecondes:
+        frame = frame.with_columns(pl.col(nom).cast(pl.Datetime("us")) for nom in nanosecondes)
+    return frame
+
+
 def export_to_database(
     df: pd.DataFrame,
     table_name: str,
@@ -687,11 +741,42 @@ def export_to_database(
         table_name: Nom de la table de staging cible.
         db_url: URI de connexion à la base du workspace (workspace.database_url).
         mode: Stratégie si la table existe (replace par défaut).
+
+    Raises:
+        RuntimeError: si les deux moteurs échouent (messages d'origine conservés).
     """
     current_run.log_info(f"Export des données vers la table `{table_name}` de la base de données.")
-    pl.DataFrame(df).write_database(
-        table_name, connection=db_url, if_table_exists=mode, engine="adbc"
-    )
+    frame = to_polars_for_adbc(df)
+
+    echec_adbc: str | None = None
+    try:
+        ingerer_adbc(frame, table_name, db_url, mode)
+    # Capture volontairement large : l'erreur ADBC ne doit pas remonter telle quelle
+    except Exception as exc:
+        echec_adbc = f"{type(exc).__module__}.{type(exc).__name__}: {exc}"
+
+    if echec_adbc is not None:
+        schema = {nom: str(dtype) for nom, dtype in frame.schema.items()}
+        current_run.log_error(f"Échec de l'écriture ADBC de « {table_name} » : {echec_adbc}")
+        current_run.log_error(f"Schéma envoyé ({frame.height} lignes) : {schema}")
+
+        # Repli : SQLAlchemy (INSERT ligne à ligne) — plus lent, mais évite de
+        # laisser le tableau de bord sur des données périmées.
+        current_run.log_warning(f"Repli SQLAlchemy pour « {table_name} » (écriture dégradée).")
+        echec_repli: str | None = None
+        try:
+            frame.write_database(
+                table_name, connection=db_url, if_table_exists=mode, engine="sqlalchemy"
+            )
+        except Exception as exc:
+            echec_repli = f"{type(exc).__module__}.{type(exc).__name__}: {exc}"
+
+        if echec_repli is not None:
+            raise RuntimeError(
+                f"Écriture de « {table_name} » échouée — ADBC : {echec_adbc} "
+                f"— repli SQLAlchemy : {echec_repli}"
+            )
+
     current_run.log_info(f"Table « {table_name} » écrite ({mode}) : {len(df)} lignes.")
     current_run.add_database_output(table_name)
 
