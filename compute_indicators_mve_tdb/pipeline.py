@@ -394,10 +394,12 @@ def pivot_enrollments(events: pl.DataFrame, org_units: pl.DataFrame) -> pl.DataF
         Un DataFrame au grain enrôlement, une colonne par data element.
     """
     contexte = events.group_by(["enrollment_id", "tracked_entity_id", "enrolled_at"]).agg(
-        pl.col("enrollment_org_unit").sort_by(["occurred_at", "created_at"], nulls_last=True).last()
+        pl.col("enrollment_org_unit")
+        .sort_by(["occurred_at", "created_at", "event_id"], nulls_last=True)
+        .last()
     )
     valeurs = events.sort(  # noqa: PD010
-        ["tracked_entity_id", "enrollment_id", "occurred_at", "created_at"],
+        ["tracked_entity_id", "enrollment_id", "occurred_at", "created_at", "event_id"],
         nulls_last=True,
     ).pivot(
         on="data_element_id",
@@ -477,7 +479,7 @@ def build_lab_summary(events: pl.DataFrame) -> pl.DataFrame:
             (pl.col("value_norm") == "Négatif").alias("is_neg"),
             (pl.col("value_norm") == "Invalide").alias("is_inv"),
         )
-        .sort(["enrollment_id", "event_dt", "created_at"], nulls_last=True)
+        .sort(["enrollment_id", "event_dt", "created_at", "event_id"], nulls_last=True)
         .group_by(["enrollment_id", "enrolled_at", "tracked_entity_id"], maintain_order=True)
         .agg(
             # A déjà été positif au moins une fois
