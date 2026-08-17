@@ -9,7 +9,11 @@ wheels/
 # Virtual environments
 .venv
 
+.claude/
+CLAUDE.md
+
 # SitRep generated artifacts (arborescence data/ réorganisée)
+data/
 data/generate_files/SitRep_MVE_RDC_*.docx
 data/_sitrep_assets/
 data/templates/*.bak.docx
