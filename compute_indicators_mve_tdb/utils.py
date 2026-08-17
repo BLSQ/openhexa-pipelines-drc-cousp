@@ -1,7 +1,11 @@
+import hashlib
 import re
+from pathlib import Path
 
 import config
 import pandas as pd
+import polars as pl
+from openhexa.sdk.datasets.dataset import DatasetVersion
 
 
 def parse_geo(geo_str: object) -> dict[str, str | None]:
@@ -54,3 +58,83 @@ def compter_oui(serie: pd.Series) -> int:
         Le nombre de valeurs égales à « Oui ».
     """
     return int((serie == "Oui").sum())
+
+
+def canoniser_geo_expr(col: str) -> pl.Expr:
+    """Canonise un libellé géographique DHIS2 (« it Ituri Province » -> « Ituri »).
+
+    Retire le préfixe province à deux lettres (it/nk/sk/kn…) puis le suffixe de
+    niveau (« Province », « Zone de Santé », « Aire de Santé »), et harmonise les
+    noms de province composés (« Nord Kivu » -> « Nord-Kivu ») pour permettre une
+    jointure avec les géométries.
+
+    Returns:
+        L'expression Polars renvoyant le libellé canonique de ``col``.
+    """
+    nettoye = (
+        pl.col(col)
+        .str.replace(config.GEO_PREFIX_RE, "")
+        .str.replace(config.GEO_SUFFIX_RE, "")
+        .str.strip_chars()
+    )
+    return nettoye.replace(config.PROVINCE_CANONICAL).alias(col)
+
+
+def sha256_of_file(file_path: Path) -> str:
+    """Calcule l'empreinte SHA-256 d'un fichier (lecture par blocs).
+
+    Args:
+        file_path: Chemin du fichier à hacher.
+
+    Returns:
+        L'empreinte SHA-256 du contenu du fichier.
+    """
+    hasher = hashlib.sha256()
+    with file_path.open("rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def in_dataset_version(file_path: Path, dataset_version: DatasetVersion) -> bool:
+    """Indique si un fichier de contenu identique est déjà dans la version.
+
+    La comparaison porte sur l'empreinte du contenu, pas sur le nom : une
+    nouvelle version n'est créée que si les données ont réellement changé.
+
+    Args:
+        file_path: Chemin du fichier local.
+        dataset_version: Version de dataset à inspecter.
+
+    Returns:
+        True si un fichier de la version a le même contenu, False sinon.
+    """
+    file_hash = sha256_of_file(file_path)
+    for file in dataset_version.files:
+        remote_hash = hashlib.sha256()
+        remote_hash.update(file.read())
+        if file_hash == remote_hash.hexdigest():
+            return True
+    return False
+
+
+def nom_prochaine_version(derniere: DatasetVersion | None, horodatage: str) -> str:
+    """Détermine le nom de la prochaine version de dataset.
+
+    Incrémente la numérotation « vN » quand elle est reconnue ; sinon (version
+    nommée à la main, format inattendu) se replie sur un nom horodaté afin de ne
+    jamais échouer ni écraser une version existante.
+
+    Args:
+        derniere: Dernière version connue du dataset, ou None si aucune.
+        horodatage: Horodatage utilisé pour le nom de repli (UTC).
+
+    Returns:
+        Le nom de version à créer.
+    """
+    if derniere is None:
+        return "v1"
+    correspondance = re.fullmatch(r"v(\d+)", derniere.name.strip())
+    if correspondance:
+        return f"v{int(correspondance.group(1)) + 1}"
+    return f"v{horodatage}"
