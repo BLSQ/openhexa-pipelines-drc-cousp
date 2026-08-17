@@ -1,4 +1,11 @@
 # ruff: noqa: E501, RUF001
+# Table source (événements du tracker, format long) lue dans la base du workspace
+EVENTS_TABLE = "mve_notification_events"
+
+# Colonnes témoins du contrôle post-écriture (celles dont la cardinalité est
+# connue et stable : géographie, identifiant de cas, tranche d'âge).
+COLS_TEMOINS = ("province", "zone_sante", "aire_sante", "numero_epid", "tranche_age")
+
 AXES_EXPORT: list[tuple[str, str]] = [
     ("date_notif", "COD_MVE_Tracker_Agg"),
     ("date_debut_symptomes", "COD_MVE_Tracker_DDS_Agg"),
@@ -57,6 +64,8 @@ DATE_COLS = {
     "date_funerailles": "date_funerailles",
     "date_premiere_vaccination": "date_premiere_vaccination",
     "date_heure_investigation": "date_heure_investigation",
+    "date_admission_cte": "date_admission_cte",
+    "date_sortie_cte": "date_sortie_cte",
 }
 
 DICO_TEI = {
@@ -166,14 +175,15 @@ RENAME_MAP = {
     "218 - MVE - S6 - FE - Zone de Santé": "zone_sante_funerailles",
     "205 - MVE - S6 - Si le malade était en isolement, date de sortie de la zone d'isolement": "date_sortie_isolement",
     "204 - MVE - S6 - SG - Zone de santé": "zone_sante_guerison",
-    # Stage Prise en charge — PEC_DISABLED
-    # Ces entrées sont conservées pour le jour où le stage sera réactivé.
-    # Elles n'auront aucun effet tant que le stage n'est pas dans ALL_DIMENSIONS.
-    # "MVE - PEC - Date d'admission":                   "date_admission_cte",    # PEC_DISABLED
-    # "MVE - PEC - Modalité de sortie":                  "modalite_sortie_cte",   # PEC_DISABLED
-    # "MVE - PEC - Status avant admission":              "statut_avant_admission_cte",  # PEC_DISABLED
+    # Stage Prise en charge
+    "MVE - PEC - Date d’admission": "date_admission_cte",
+    "MVE - PEC - Date de sortie": "date_sortie_cte",
+    "MVE - PEC - Status avant admission": "statut_avant_admission_cte",
+    # Modalité de sortie du CTE : le DE s'appelle « Statut au moment de la sortie »
+    # (modalités observées : Guéri(e), Décédé(e), Non Cas, Retour à la maison,
+    # Abandon, Evadé(e), Référé, Transféré(e)).
+    "MEV - PEC37 - Statut au moment de la sortie": "modalite_sortie_cte",
 }
-
 
 DICO_DE_MAPPING = {
     "symptomes_notification": "qdhYjojAAXd",
@@ -247,6 +257,10 @@ DICO_DE_MAPPING = {
     "date_sortie_isolement": "W2u38gg9Jy8",
     "zone_sante_guerison": "fg5xfl9bD5V",
     "grossesse": "ICpmsUy8ros",
+    "date_admission_cte": "KGsTJ4jV7Fb",
+    "date_sortie_cte": "Xy5J5MGpaZ7",
+    "statut_avant_admission_cte": "AawdHKqaXcj",
+    "modalite_sortie_cte": "WKZu0kp6wWu",
 }
 
 # Délais (jours) : nom_cible -> (date_fin, date_debut)
@@ -256,7 +270,7 @@ DELAI_DEFS = {
     "delai_prelev_reception": ("date_reception_labo", "date_prelevement"),
     "delai_recept_result": ("date_analyse_labo", "date_reception_labo"),
     "delai_notif_result": ("date_analyse_labo", "date_notif"),
-    #  "duree_sejour_cte": ("date_sortie_cte", "date_admission_cte"),
+    "duree_sejour_cte": ("date_sortie_cte", "date_admission_cte"),
 }
 
 # Bornes de plausibilité (jours) appliquées aux délais ; mêmes clés que DELAI_DEFS
@@ -266,12 +280,10 @@ DELAI_BORNES = {
     "delai_prelev_reception": (0, 7),  # transport vers labo
     "delai_recept_result": (0, 7),  # réception → analyse
     "delai_notif_result": (0, 21),  # bout en bout
-    #   "duree_sejour_cte":       (0, 42),  # séjour CTE
+    "duree_sejour_cte": (0, 42),  # séjour CTE
 }
 
-# Schéma de la liste de ligne nominative publiée (ordre des colonnes en sortie).
-# Inclut les colonnes dérivées (délais, statut vital, labo) : la sélection se
-# fait APRÈS dérivation dans build_line_list_individu().
+
 LLN_COLS = [
     # ── Identité / géo / dates ───────────────────────────────────────────────
     "numero_epid",
@@ -285,7 +297,8 @@ LLN_COLS = [
     "date_analyse_labo",
     "machine_labo",
     "date_deces",
-    #  "date_admission_cte", "date_sortie_cte",
+    "date_admission_cte",
+    "date_sortie_cte",
     "province",
     "zone_sante",
     "aire_sante",
@@ -311,6 +324,7 @@ LLN_COLS = [
     "delai_prelev_reception",
     "delai_recept_result",
     "delai_notif_result",
+    "duree_sejour_cte",
     # ── Statut & labo ────────────────────────────────────────────────────────
     "statut_vital",
     "resultat_labo",
@@ -323,3 +337,181 @@ LLN_COLS = [
     "coordinates_zs",
     "coordinates_province",
 ]
+
+DATASET_LLN_MAPPING = {
+    # Stage 1 · Notification de l'alerte (njs9IDEFVtC)
+    "kdOYmDgoyAA": "nature_alerte",  # MVE-N Nature de l'Alerte
+    "rEMVmX2CvRw": "etat_sante_actuel",  # MVE-N Etat de santé actuel
+    "qdhYjojAAXd": "symptomes",  # MVE-N Symptômes
+    "F0gpBf9R11P": "date_heure_investigation",  # MVE-N-Date & Heure d'investigation
+    "KhsBtTYkFZd": "conclusion_alerte",  # MVE-N-Conclusion de l'alerte
+    "rrFePJwactM": "commission_pec_prevenue",  # MVE-N Commission PEC prévenue
+    "jHaeHsB6JbW": "devenir_cas_suspect",  # MVE - N - Cas suspect
+    "ZBhXK4z0Iax": "date_deces_alerte",  # MVE- N - Date de décès
+    # Stage 2 · Investigation FHV (fqrtWpCo7za)
+    "mMGawAScUbp": "gps_maison",  # S1 -  Coordonnées GPS de la maison
+    "o7NC9z4JAts": "etat_patient_collecte",  # S1 -  Etat du patient au moment de la collecte d'information
+    "cHbhxbwAZZ3": "etablissement_soins",  # S1 -  Nom de l’établissement de soins  # noqa: RUF003
+    "ICpmsUy8ros": "grossesse",  # MVE - S1 -  La malade est-elle enceinte ?
+    "t4RcYSXmYgW": "statut_vaccinal_mve",  # S1 -  Statut vaccinal du malade: vacciné contre MVE
+    "dAIplu60XuM": "nb_doses_vaccin_ebola",  # MVE - S1 - Combien de fois le patient a-t-il été vacciné contre d’Ebola ?  # noqa: RUF003
+    "j4A3wbzVrWz": "date_premiere_vaccination",  # MVE - S1 - Date de la première vaccination ?
+    "D41GBZFDn5t": "lieu_maladie_village",  # MVE - S1 -  Endroit où le patient est tombé malade : Village/Ville
+    "Fl9ty8UdhnJ": "lieu_maladie_zs",  # MVE - S1 - Endroit où le patient est tombé malade : Zone de Santé
+    # NB : nom volontairement distinct de l'attribut TEI « date_debut_symptomes »
+    # (MVE - DDS) — sans cela les deux colonnes entrent en collision à la jointure.
+    "aRju8gQZBET": "date_debut_symptomes_invest",  # 042 - MVE - S2 - Date de début des signes et symptômes
+    "uW3XFH8TQGE": "sympt_fievre",  # 043 - MVE - S2 - Fièvre
+    "T3jzcNGXCpa": "temperature",  # 044 - MVE - S2 - Si oui, Temp C  (Thermoflash)
+    "xATq2Gnt48G": "sympt_nausees_vomissements",  # 045 - MVE - S2 - Nausées / Vomissements
+    "Pjk2zRsdLEv": "sympt_diarrhee",  # 046 - MVE - S2 - Diarrhées
+    "g2QJ4LWuq1C": "sympt_fatigue",  # 047 - MVE - S2 - Fatigue générale intense
+    "ZwlwHsvxPA3": "sympt_cephalees",  # 053 - MVE - S2 - Céphalées
+    "vwS0SsOqCz9": "sympt_coma",  # 063 - MVE - S2 - Coma / perte de conscience
+    "fjXyHX02I8c": "sympt_confusion",  # 064 - MVE - S2 - Confusion ou désorientation
+    "HrFOPwqKxoV": "sympt_saignements",  # 065 - MVE - S2 - Saignements
+    "pwNocbwvO0o": "sympt_saignement_gencives",  # 067 - MVE - S2 - Saignements des gencives
+    "N50wDaI6H1r": "sympt_epistaxis",  # 069 - MVE - S2 - Saignements du nez (épistaxis)
+    "BYkTKut1D8V": "sympt_melena",  # 070 - MVE - S2 - Selles rouges ou noires (mélénas)
+    "Gutl308P6Pl": "sympt_hematemese",  # 071 - MVE - S2 - Vomissements sanglants (hématémèses)
+    "f0yTueLYdns": "sympt_hematomes_petechies",  # 075 - MVE - S2 - Hématomes / Pétéchies / purpura
+    "MhWvM2jHEvL": "date_hospitalisation",  # 097 - MVE - S3 - HO-4 - Date d’hospitalisation/Date de consultation - Début  # noqa: RUF003
+    "sRCOxZrDZkv": "etablissement_soins_ho1",  # 093 - MVE - S3 - HO-1 - Nom de l’établissement de soins  # noqa: RUF003
+    "y8Yv0WaxsJA": "etablissement_soins_zs",  # 094 - MVE - S3 - HO-1 - Zone de santé
+    "Tzr3SapM9je": "contact_malade_ebola",  # 106 - MVE - S4 - 1. Il y a-t-il eu contacts avec un malade Ebola, connu/suspect, ou simplement avec une personne malade?
+    "fRj81KZWlYh": "type_contact",  # 115 - MVE - S4 - MA-1 - Types de contact
+    "hOqgFC3f94P": "lien_parente_contact",  # 108 - MVE - S4 - MA-1 - Lien de parenté
+    "P8TAPKXAK2E": "contact_corps_funerailles",  # 155 - MVE - S4 - PF-2 - Avez-vous porté ou touché le corps?
+    "PydxMCR9fV6": "contact_animal_viande",  # 177 - MVE - S4 - 6. Le patient a-t-il eu un contact direct (chasse, touché, mangé) avec des animaux ou de la viande crue avant de tomber malade?
+    "fq5cNcnKcy9": "contact_animal_chauvesouris",  # 177 - MVE - S4 - 6.1 Chauve-souris (ou excrétions de)
+    "alu85ZZRCZE": "contact_animal_singe",  # 177 - MVE - S4 - 6.2 Singes
+    # Stage 3 · Prélèvements biologiques (GO2aLxqhDIS)
+    "lj0Zv0vbUN5": "num_prelevement",  # MVE - N° Prélèvement
+    "aC7D1VntfwF": "prelevement_anterieur",  # 182 - MVE - S5 - Est-ce qu’un prélèvement a déjà été soumis pour ce malade?  # noqa: RUF003
+    "hRDXEdSBqNF": "identifiant_labo",  # 182.1 - MVE - S5 - Identifiant Labo
+    "nniQIfMGBDC": "statut_au_prelevement",  # 182.2 - MVE - S5 - Statut du patient lors du prélèvement
+    "CxQAC5LkMtn": "date_prelevement",  # 183 - MVE - S5 - Date du prélèvement
+    "USnTDONKNN8": "type_prelevement",  # 184 - MVE - S5 - Type de prélèvement
+    "NT3xJOu8JAL": "prelevement_precisez",  # 185 - MVE - S5 - PR - précisez
+    # Stage 4 · Résultat laboratoire (r7nrCHTBI5P)
+    "HBw0c2Cg8GU": "date_reception_labo",  # MVE - LAB - Date de Reception
+    "BTMKxJvLTer": "date_analyse_labo",  # MVE - LAB - Date d'analyse
+    "rtfha5Df5a8": "machine_labo",  # MVE - LAB - Machine
+    "j6xabrRDJuo": "resultat_labo",  # MVE - LAB - Résultat Final (MVE)
+    "D6kduc7OZnS": "classification_cas",  # MVE - Classification finale du cas
+    "DBdW3r069Yn": "ct_ebov",  # MVE - LAB - Radi One – Ebola — Valeur CT fam (EBOV)  # noqa: RUF003
+    "CBn9FhYHn0Y": "ct_hec_ic",  # MVE - LAB - Radi One – Ebola — Valeur CT HEC (IC)  # noqa: RUF003
+    "mRyo3TkE7jp": "coinfection",  # MVE - LAB - Co-infection ?
+    "q0aEkUpgpNh": "coinfection_type",  # MVE - LAB - Si Co-infection
+    "Smg0g56IqWr": "incident_labo",  # MVE - LAB - Incident
+    # Stage 5 · Statut final du patient (kOyiPgabAuY)
+    "Za0cx3pmcWW": "statut_final",  # 199 - MVE - S6 - Statut final du patient
+    "jieNzfUp3E8": "signes_hemorragiques",  # 200 - MVE - S6 - Est-ce-que le patient a eu des signes hémorragiques inexpliqués pendant la durée de la maladie?
+    "W2u38gg9Jy8": "date_sortie_isolement",  # 205 - MVE - S6 - Si le malade était en isolement, date de sortie de la zone d’isolement  # noqa: RUF003
+    "wIY8Kv2oWec": "date_sortie_hopital",  # 206 - MVE - S6 - Date de sortie de l’hôpital  # noqa: RUF003
+    "x1aazi4fgKO": "date_deces",  # 208 - MVE - S6 - Date de décès
+    "sHEARVNufMJ": "lieu_deces",  # 209 - MVE - S6 - Lieu du décès
+    "fg5xfl9bD5V": "sortie_guerison_zs",  # 204 - MVE - S6 - SG - Zone de santé
+    "dqmYvLDGfDu": "deces_zs",  # 212 - MVE - S6 - DC - Zone de Santé
+    "eLqoRcK7lq1": "date_funerailles",  # 214 - MVE - S6 - Date des funérailles
+    "fpw6gIG7Nhq": "funerailles_organisees_par",  # 215 - MVE - S6 - Funérailles organisées par
+    "LE2eGGkAy2F": "lieu_funerailles",  # 216 - MVE - S6 - Lieu des funérailles/enterrement
+    "NympO1c3msQ": "funerailles_zs",  # 218 - MVE - S6 - FE - Zone de Santé
+    # Stage 6 · Prise en charge (rMvKKqab4bW)
+    "Xy5J5MGpaZ7": "date_sortie_pec",  # MVE - PEC - Date de sortie
+    "KGsTJ4jV7Fb": "date_admission_pec",  # MVE - PEC - Date d’admission  # noqa: RUF003
+    "AawdHKqaXcj": "statut_avant_admission_pec",  # MVE - PEC - Status avant admission
+    "WKZu0kp6wWu": "issue_pec",  # MEV - PEC37 - Statut au moment de la sortie
+    "eFA1FPYnvsj": "etablissement_pec_actuel",  # MVE - PEC04 - Nom de l'etablissement de soins (CTE, ESS) : Actuel
+    "CJaBDAUQ0kr": "provenance_patient_pec",  # MVE - PEC01 - Provenance du patient
+    "wcPpsQhBslQ": "vacinnation_ebola_pec",  # MEV - PEC11.3 - Vaccination ebola
+    "x0eZQyz12IZ": "date_vaccination_pec",  # MEV - PEC11.4 - Date de vaccination
+    # Stage 7 · Prévention et Contrôle des Infections (RMwCRkCgqlv)
+    "lgy9pGUinCP": "isolement_pci",  # MVE - PCI1 - Isolement
+    "x3hPEw1dqqZ": "date_isolement_pci",  # MVE - PCI2 - Date d’isolement  # noqa: RUF003
+    "cPYPUNYgWbc": "lieu_isolement_pci",  # MVE - PCI3 - Lieu Isolement
+    "CFyW6yNLQXU": "decontamination_pci",  # MVE - PCI4 - Décontamination
+    "OW2wPtfKUcL": "dotation_kits_pci_ess_pci",  # MVE - PCI7 - Dotation de Kits PCI ESS
+    "jy0OuCPDBli": "nombre_kits_pci_ess_pci",  # MVE - PCI8 - Nombre de Kits PCI ESS
+    "fWBGDpJezOX": "date_deces_pci",  # MVE - PCI9 - Date de décès
+    "plhgmEjNwl5": "date_intervention_activite_pci",  # MVE - PCI-001 - Date de l'intervention/activité
+    "w87DUjQZkw1": "etablissement_soins_sante_pci",  # MVE - PCI-005 - Nom de l'Etablissement de soins de santé
+    "XRhlecJPQbg": "nombre_total_lits_pci",  # MVE - PCI-008 - Nombre total de lits
+    "uWaXCTdBlxC": "date_investigation_ppl_pci",  # MVE - PCI-018 - Date d'investigation du PPL
+    "oZalwEvTdSi": "eds_realise_pci",  # MVE - PCI12 - EDS realise
+    "jxdmebLuEKC": "date_eds_pci",  # MVE - PCI11 - Date EDS
+    "WTtRj0ODuBE": "swab_realise_pci",  # MVE - PCI10 - Swab realise
+    "b6Pf3aEdtpP": "date_swab_pci",  # MVE - PCI11 - Date Swab
+    # Stage 8 · Localisation du cas confirmé (U7LGPqXkVg6)
+    "B06dikdGoC5": "gps_cas_confirme",  # MVE - Coordonnées géographiques — Cas confirmé
+}
+
+DE_UTILES = sorted({*DATASET_LLN_MAPPING, *DICO_DE_MAPPING.values()})
+
+
+LLN_EXPORT_DIR = "pipelines/lln"
+LLN_DATASET_FILE = "lln_mve_notifications.parquet"
+LLN_DATASET_META = "lln_mve_notifications_metadata.json"
+
+# Canonisation géographique des libellés DHIS2 (« it Ituri Province » -> « Ituri »)
+GEO_PREFIX_RE = r"^[a-z]{2}\s+"
+GEO_SUFFIX_RE = r"(?i)\s+(Province|Zone de Santé|Zone_de_sante|Aire de Santé)$"
+PROVINCE_CANONICAL = {
+    "Nord Kivu": "Nord-Kivu",
+    "Sud Kivu": "Sud-Kivu",
+    "Haut Uele": "Haut-Uele",
+    "Bas Uele": "Bas-Uele",
+}
+
+# Clés d'identification (grain publié = un enrôlement par ligne)
+COLS_LLN_CLES = ["enrollment_id", "tracked_entity_id"]
+
+# Géographie canonisée (les level_*_name bruts DHIS2 ne sont pas publiés)
+COLS_LLN_GEO = [
+    "province_id",
+    "province",
+    "zone_sante_id",
+    "zone_sante",
+    "aire_sante_id",
+    "aire_sante",
+]
+
+# Attributs d'entité suivie + fenêtre de suivi de l'enrôlement
+COLS_LLN_TEI = [
+    "numero_epid",
+    "sexe",
+    "age_ans",
+    "age_mois",
+    "profession",
+    "secteur",
+    "lien_epidemiologique",
+    "date_notification",
+    "date_debut_symptomes",
+]
+COLS_LLN_EVENTS = ["enrolled_at", "date_premier_event", "date_dernier_event", "n_events"]
+
+# Résumé de l'historique laboratoire (cf. build_lab_summary)
+COLS_LLN_LABO = [
+    "lab_confirme",
+    "date_confirmation",
+    "date_dernier_test",
+    "n_tests_labo",
+    "n_pos",
+    "n_neg",
+    "n_inv",
+    "flag_pos_puis_neg",
+    "flag_pos_puis_inv",
+]
+
+DATASET_LLN_COLS = list(
+    dict.fromkeys(
+        [
+            *COLS_LLN_CLES,
+            *COLS_LLN_GEO,
+            *COLS_LLN_TEI,
+            *COLS_LLN_EVENTS,
+            *DATASET_LLN_MAPPING.values(),
+            *COLS_LLN_LABO,
+        ]
+    )
+)

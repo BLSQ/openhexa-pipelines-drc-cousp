@@ -1,18 +1,67 @@
 from __future__ import annotations
 
+import functools
 import json
-from datetime import date
+import traceback
+from collections.abc import Callable
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
 
-import adbc_driver_postgresql.dbapi as pg_dbapi
 import config
 import numpy as np
 import pandas as pd
 import polars as pl
-from openhexa.sdk import DHIS2Connection, current_run, parameter, pipeline, workspace
+from adbc_driver_postgresql import dbapi as pgdbapi
+from openhexa.sdk import Dataset, DHIS2Connection, current_run, parameter, pipeline, workspace
 from openhexa.toolbox.dhis2 import DHIS2, dataframe
-from utils import compter_oui, parse_geo, tranche_age
+from utils import (
+    canoniser_geo_expr,
+    compter_oui,
+    in_dataset_version,
+    nom_prochaine_version,
+    parse_geo,
+    tranche_age,
+)
+
+CaseData = dict[str, object]
+
+
+def tache_robuste(fonction: Callable) -> Callable:
+    """Convertit toute exception d'une tâche en RuntimeError explicite.
+
+    Les tâches OpenHexa tournent dans des process séparés : une exception non
+    picklable (erreur native Polars/ADBC) ne remonte pas au parent, qui attend
+    alors un résultat qui n'arrivera jamais - le run reste « running » jusqu'au
+    timeout. On journalise la trace et on relance un type standard.
+
+    Returns:
+        La fonction encapsulée.
+    """
+
+    @functools.wraps(fonction)
+    def _tache(*args: object, **kwargs: object) -> object:
+        try:
+            return fonction(*args, **kwargs)
+        except Exception as exc:
+            current_run.log_error(
+                f"Échec de la tâche « {fonction.__name__} » : {type(exc).__name__}: {exc}\n"
+                f"{traceback.format_exc(limit=8)}"
+            )
+            raise RuntimeError(f"{fonction.__name__}: {type(exc).__name__}: {exc}") from None
+
+    return _tache
+
+
+# level_* DHIS2 -> noms publiés dans la LLN partagée
+GEO_RENAME = {
+    "level_2_id": "province_id",
+    "level_2_name": "province",
+    "level_3_id": "zone_sante_id",
+    "level_3_name": "zone_sante",
+    "level_4_id": "aire_sante_id",
+    "level_4_name": "aire_sante",
+}
 
 
 @pipeline("compute_indicators_mve_tdb")
@@ -37,10 +86,19 @@ from utils import compter_oui, parse_geo, tranche_age
     help="Borne haute sur enrolled_at (YYYY-MM-DD). Laisser vide pour aucun plafond.",
     required=False,
 )
+@parameter(
+    "lln_dataset",
+    type=Dataset,
+    name="Dataset LLN Tracker MVE",
+    help="Dataset de staging pour la liste lineaire nominative (LLN).",
+    required=False,
+    default="lln-tracker-mve",
+)
 def compute_indicators_mve_tdb(
     dhis_con: DHIS2Connection,
     date_min: str,
     date_max: str | None = None,
+    lln_dataset: Dataset | None = None,
 ) -> None:
     """Calcule et publie les indicateurs du tableau de bord MVE."""
     fenetre_min = date.fromisoformat(date_min)
@@ -56,17 +114,17 @@ def compute_indicators_mve_tdb(
     db_url = workspace.database_url
     org_units = get_organisation_units(tracker)
 
-    indicators = build_indicators(org_units, fenetre_min, fenetre_max)
+    case_data = build_case_data(org_units, fenetre_min, fenetre_max, db_url)
     ou_zone_sante = build_org_units(org_units, "zone_sante")
     ou_provinces = build_org_units(org_units, "province")
 
-    for colonne_date, table_name in config.AXES_EXPORT:
-        export_aggregate(indicators, ou_zone_sante, ou_provinces, colonne_date, table_name, db_url)
+    export_tables(case_data, ou_zone_sante, ou_provinces, db_url)
 
-    export_individu(indicators, ou_zone_sante, ou_provinces, db_url)
+    export_to_dataset(case_data, lln_dataset)
 
 
 @compute_indicators_mve_tdb.task
+@tache_robuste
 def get_organisation_units(tracker: DHIS2) -> pl.DataFrame:
     """Récupère les unités d'organisation DHIS2 (métadonnées + géométries).
 
@@ -80,139 +138,274 @@ def get_organisation_units(tracker: DHIS2) -> pl.DataFrame:
 
 
 @compute_indicators_mve_tdb.task
-def build_indicators(
+@tache_robuste
+def build_case_data(
     org_units: pl.DataFrame,
     date_min: date,
     date_max: date | None,
-) -> pd.DataFrame:
-    """Construit la liste de ligne enrichie des indicateurs, au grain cas.
+    db_url: str,
+) -> CaseData:
+    """Ingère les événements et construit les deux sorties, en une seule tâche.
+
+    Toute la chaîne lourde (lecture SQL, pivot au grain enrôlement, attributs
+    TEI, résumé labo) reste **dans cette tâche** : les tâches OpenHexa tournant
+    dans des process séparés, faire circuler la table d'événements entre
+    plusieurs tâches coûte plusieurs centaines de Mo de sérialisation par
+    passage. Seuls les résultats compacts sont renvoyés.
 
     Args:
-        org_units: Unités d'organisation (jointure géographique du pivot).
+        org_units: Unités d'organisation (jointure géographique).
         date_min: Borne basse incluse sur enrolled_at.
         date_max: Borne haute incluse sur enrolled_at, ou None.
+        db_url: URI de connexion à la base du workspace.
 
     Returns:
-        La liste de ligne (pandas) avec colonnes dérivées et drapeaux is_*.
+        Les indicateurs au grain cas, le chemin du parquet LLN et ses métadonnées.
     """
-    events = load_notification_events()
-    enrollments = pivot_enrollments(events, org_units, date_min, date_max)
+    events = load_notification_events(db_url, date_min, date_max)
     tei = extract_tei_attributes(events)
-    lab_summary = build_lab_summary(events, tei, date_min, date_max)
+    enrollments = pivot_enrollments(events, org_units)
+    event_dates = build_event_dates(events)
+    lab_summary = build_lab_summary(events)
+
+    # Sortie 1 - LLN partagée (dataset OpenHexa), schéma config.DATASET_LLN_COLS
+    lln = build_line_list(enrollments, tei, org_units, lab_summary, event_dates)
+    horodatage = datetime.now(UTC)
+    lln_path = write_lln_parquet(lln)
+    metadata = build_lln_metadata(lln, date_min, date_max, horodatage)
+
+    # Sortie 2 - indicateurs au grain cas (tables du tableau de bord)
     line_list = consolidate_line_list(enrollments, tei, lab_summary)
-    return compute_indicators(line_list)
+    indicators = compute_indicators(line_list)
+
+    return {
+        "indicators": indicators,
+        "lln_path": str(lln_path),
+        "lln_metadata": metadata,
+        "horodatage": horodatage.strftime("%Y%m%d-%H%M"),
+    }
 
 
 @compute_indicators_mve_tdb.task
-def export_aggregate(
-    indicators: pd.DataFrame,
-    ou_zone_sante: pl.DataFrame,
-    ou_provinces: pl.DataFrame,
-    colonne_date: str,
-    table_name: str,
-    db_url: str,
-) -> None:
-    """Agrège un axe temporel et publie sa table de staging (branche DAG isolée).
-
-    Args:
-        indicators: Liste de ligne enrichie issue de build_indicators().
-        ou_zone_sante: Unités d'organisation zone de santé (coordonnées).
-        ou_provinces: Unités d'organisation province (coordonnées).
-        colonne_date: Axe temporel d'agrégation (cf. config.AXES_EXPORT).
-        table_name: Table de staging cible.
-        db_url: URI de connexion à la base du workspace.
-    """
-    agg = aggregate_indicators(indicators, ou_zone_sante, ou_provinces, colonne_date)
-    export_to_database(agg, table_name, db_url)
-
-
-@compute_indicators_mve_tdb.task
-def export_individu(
-    indicators: pd.DataFrame,
+@tache_robuste
+def export_tables(
+    case_data: CaseData,
     ou_zone_sante: pl.DataFrame,
     ou_provinces: pl.DataFrame,
     db_url: str,
 ) -> None:
-    """Construit et publie la liste de ligne nominative (branche DAG isolée).
+    """Publie les tables du tableau de bord, **séquentiellement**.
+
+    Il y avait auparavant une tâche par table, donc quatre process concurrents.
+    Chacun reconstruit les anneaux de géométrie répétés à chaque ligne (~400 Mo
+    de texte pour 127 anneaux distincts) puis les convertit en Arrow : plusieurs
+    Go simultanés, et le worker le plus gros finit tué par l'OOM killer - ce qui
+    laisse le run bloqué, un process mort ne rendant jamais son résultat. En
+    séquentiel, le pic mémoire est celui d'une seule table.
 
     Args:
-        indicators: Liste de ligne enrichie issue de build_indicators().
+        case_data: Charge utile issue de build_case_data().
         ou_zone_sante: Unités d'organisation zone de santé (coordonnées).
         ou_provinces: Unités d'organisation province (coordonnées).
         db_url: URI de connexion à la base du workspace.
     """
-    individu = build_line_list_individu(indicators, ou_zone_sante, ou_provinces)
+    indicators = case_data["indicators"]
+
+    for colonne_date, table_name in config.AXES_EXPORT:
+        agg = aggregate_indicators(indicators, ou_zone_sante, ou_provinces, colonne_date)  # type: ignore
+        export_to_database(agg, table_name, db_url)
+        del agg
+
+    individu = build_line_list_individu(indicators, ou_zone_sante, ou_provinces)  # type: ignore
     export_to_database(individu, config.LLN_TABLE, db_url)
 
 
-def load_notification_events() -> pl.DataFrame:
+@compute_indicators_mve_tdb.task
+@tache_robuste
+def build_org_units(
+    org_units: pl.DataFrame,
+    niveau: Literal["province", "zone_sante"],
+) -> pl.DataFrame:
+    """Prépare les unités d'organisation d'un niveau donné (province ou zone de santé).
+
+    Filtre sur le niveau hiérarchique, reconstruit la hiérarchie géographique et
+    extrait l'anneau extérieur du polygone, sérialisé en JSON (jointure carto).
+
+    Args:
+        org_units: Unités d'organisation issues de la toolbox DHIS2.
+        niveau: « province » (level 2) ou « zone_sante » (level 3).
+
+    Returns:
+        Les unités du niveau demandé, avec geo_hierarchie et coordinates (JSON).
+    """
+    if niveau == "zone_sante":
+        level, cols_geo = 3, ["level_1_name", "level_2_name", "level_3_name"]
+    else:
+        level, cols_geo = 2, ["level_1_name", "level_2_name"]
+
+    def _anneau_exterieur(geom: object) -> object:
+        """Anneau extérieur du polygone (les ZS sont imbriquées d'un niveau de plus).
+
+        Returns:
+            La liste de coordonnées de l'anneau extérieur, ou None si absente.
+        """
+        if not isinstance(geom, str):
+            return None
+        coords = json.loads(geom)["coordinates"][0]
+        return coords[0] if niveau == "zone_sante" else coords
+
+    prepared = (
+        org_units.filter((pl.col("level") == level) & pl.col("geometry").is_not_null())
+        .with_columns(
+            pl.concat_str(cols_geo, separator=" / ").alias("geo_hierarchie"),
+            pl.col("geometry")
+            .map_elements(_anneau_exterieur, return_dtype=pl.Object)
+            .alias("coordinates"),
+        )
+        .with_columns(
+            pl.col("coordinates")
+            .map_elements(json.dumps, return_dtype=pl.Utf8)
+            .alias("coordinates")
+        )
+    )
+    current_run.log_info(
+        f"Unités d'organisation « {niveau} » préparées : {prepared.height} géométries."
+    )
+    return prepared
+
+
+@compute_indicators_mve_tdb.task
+@tache_robuste
+def export_to_dataset(case_data: CaseData, dataset: Dataset | None) -> None:
+    """Publie la LLN (parquet + métadonnées) dans une version du dataset.
+
+    Args:
+        case_data: Charge utile issue de build_case_data().
+        dataset: Dataset cible, ou None pour ne rien publier.
+    """
+    chemin = Path(str(case_data["lln_path"]))
+    if dataset is None:
+        current_run.log_info(f"Aucun dataset cible : LLN laissée dans « {chemin} ».")
+        return
+
+    chemin_meta = chemin.with_name(config.LLN_DATASET_META)
+    chemin_meta.write_text(
+        json.dumps(case_data["lln_metadata"], indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    try:
+        publier_version(dataset, chemin, chemin_meta, str(case_data["horodatage"]))
+    finally:
+        chemin.unlink(missing_ok=True)
+        chemin_meta.unlink(missing_ok=True)
+
+
+def publier_version(
+    dataset: Dataset,
+    chemin: Path,
+    chemin_meta: Path,
+    horodatage: str,
+) -> None:
+    """Crée une version du dataset et y dépose la LLN, si le contenu a changé.
+
+    Args:
+        dataset: Dataset cible.
+        chemin: Parquet de la LLN.
+        chemin_meta: JSON de métadonnées accompagnant la LLN.
+        horodatage: Horodatage de repli pour le nom de version.
+    """
+    derniere = dataset.latest_version
+    if derniere is not None and in_dataset_version(chemin, derniere):
+        current_run.log_info(
+            f"LLN inchangée depuis la version « {derniere.name} » du dataset "
+            f"« {dataset.name} » : aucune nouvelle version créée."
+        )
+        return
+
+    version = dataset.create_version(nom_prochaine_version(derniere, horodatage))
+    version.add_file(chemin, chemin.name)
+    version.add_file(chemin_meta, chemin_meta.name)
+    current_run.log_info(
+        f"LLN publiée dans le dataset « {dataset.name} », version « {version.name} » "
+        f"({chemin.name} + {chemin_meta.name})."
+    )
+
+
+def load_notification_events(
+    db_url: str,
+    date_min: date,
+    date_max: date | None,
+    table_name: str = config.EVENTS_TABLE,
+) -> pl.DataFrame:
     """Charge la table d'événements de notification MVE depuis le workspace.
 
-    Renomme les attributs d'entité suivie (config.DICO_TEI) et type les dates
-    de notification et de début des symptômes.
+    Args:
+        db_url: URI de connexion à la base du workspace.
+        date_min: Borne basse incluse sur enrolled_at.
+        date_max: Borne haute incluse sur enrolled_at, ou None.
+        table_name: Table source (format long du tracker).
 
     Returns:
         Les événements bruts (grain événement DHIS2), prêts à être pivotés.
     """
+    colonnes = [
+        "event_id",
+        "tracked_entity_id",
+        "enrollment_id",
+        "enrollment_org_unit",
+        "enrolled_at",
+        "occurred_at",
+        "created_at",
+        "data_element_id",
+        "value_norm",
+        *config.DICO_TEI,
+    ]
+    projection = ", ".join(f'"{colonne}"' for colonne in colonnes)
+    data_elements = ", ".join(f"'{de}'" for de in config.DE_UTILES)
+    conditions = [
+        f'"data_element_id" IN ({data_elements})',
+        f""""enrolled_at" >= DATE '{date_min.isoformat()}'""",
+    ]
+    if date_max is not None:
+        conditions.append(f""""enrolled_at" <= DATE '{date_max.isoformat()}'""")
+
     df = pl.read_database_uri(
-        'SELECT * FROM "public"."mve_notification_events"',
-        uri=workspace.database_url,
+        f'SELECT {projection} FROM "public"."{table_name}" WHERE {" AND ".join(conditions)}',
+        uri=db_url,
     )
-    # df = df.filter(pl.col("data_element_id").is_in(list(config.DICO_DE_MAPPING.values())))
     df = df.rename(config.DICO_TEI).with_columns(
-        pl.col("date_notification").cast(pl.Datetime, strict=False),  # .dt.date(),
+        pl.col("enrolled_at").cast(pl.Date, strict=False),
+        pl.col("date_notification").cast(pl.Datetime, strict=False),
         pl.col("date_debut_symptomes").cast(pl.Date, strict=False),
     )
-    current_run.log_info(f"Événements de notification chargés : {df.height} lignes.")
+    current_run.log_info(f"Événements de notification chargés : {df.height} lignes ")
     return df
 
 
-def pivot_enrollments(
-    events: pl.DataFrame,
-    org_units: pl.DataFrame,
-    date_min: date,
-    date_max: date | None,
-) -> pl.DataFrame:
+def pivot_enrollments(events: pl.DataFrame, org_units: pl.DataFrame) -> pl.DataFrame:
     """Pivote les événements tracker au grain ENROLLMENT (une ligne par enrôlement).
-
-    Chaque data element devient une colonne portant sa DERNIÈRE valeur connue
-    (tri par created_at) — équivalent Polars d'un program indicator DHIS2 de
-    type ENROLLMENT. Le filtre temporel s'applique sur enrolled_at ; le plafond
-    date_max (optionnel) écarte les dates aberrantes dans le futur. La hiérarchie
-    géographique est rattachée depuis org_units.
 
     Args:
         events: Événements bruts issus de load_notification_events().
         org_units: Unités d'organisation (noms de niveaux 1 à 4).
-        date_min: Borne basse incluse sur enrolled_at.
-        date_max: Borne haute incluse sur enrolled_at, ou None.
 
     Returns:
         Un DataFrame au grain enrôlement, une colonne par data element.
     """
-    fenetre = pl.col("data_element_id").is_not_null() & (
-        pl.col("enrolled_at") >= pl.datetime(date_min.year, date_min.month, date_min.day)
+    contexte = events.group_by(["enrollment_id", "tracked_entity_id", "enrolled_at"]).agg(
+        pl.col("enrollment_org_unit").sort_by(["occurred_at", "created_at"], nulls_last=True).last()
     )
-    if date_max is not None:
-        fenetre = fenetre & (
-            pl.col("enrolled_at") <= pl.datetime(date_max.year, date_max.month, date_max.day)
-        )
-
-    enrollments = (
-        events.filter(fenetre)  # noqa: PD010 — .pivot() Polars, pas pandas
-        .sort(["tracked_entity_id", "enrollment_id", "created_at"])
-        .pivot(
-            on="data_element_id",
-            index=[
-                "enrollment_id",
-                "tracked_entity_id",
-                "enrollment_org_unit",
-                "enrolled_at",
-            ],
-            values="value_norm",
-            aggregate_function="last",
-        )
+    valeurs = events.sort(  # noqa: PD010
+        ["tracked_entity_id", "enrollment_id", "occurred_at", "created_at"],
+        nulls_last=True,
+    ).pivot(
+        on="data_element_id",
+        index="enrollment_id",
+        values="value_norm",
+        aggregate_function="last",
     )
+    enrollments = contexte.join(valeurs, on="enrollment_id", how="left")
     enrollments = enrollments.join(
         org_units.select(
             ["id", "level_1_name", "level_2_name", "level_3_name", "level_4_name"]
@@ -242,45 +435,57 @@ def extract_tei_attributes(
     return tei
 
 
-def build_lab_summary(
-    events: pl.DataFrame,
-    tei: pl.DataFrame,
-    date_min: date,
-    date_max: date | None,
-) -> pl.DataFrame:
+def build_event_dates(events: pl.DataFrame) -> pl.DataFrame:
+    """Résume la fenêtre d'événements de chaque enrôlement.
+
+    Conserve l'information portée par ``occurred_at`` sans changer le grain :
+    date du premier et du dernier événement, nombre d'événements.
+
+    Args:
+        events: Événements bruts issus de load_notification_events().
+
+    Returns:
+        Une ligne par enrôlement (date_premier_event, date_dernier_event, n_events).
+    """
+    return events.group_by("enrollment_id").agg(
+        pl.col("occurred_at").min().cast(pl.Date, strict=False).alias("date_premier_event"),
+        pl.col("occurred_at").max().cast(pl.Date, strict=False).alias("date_dernier_event"),
+        pl.col("event_id").n_unique().alias("n_events"),
+    )
+
+
+def build_lab_summary(events: pl.DataFrame) -> pl.DataFrame:
     """Résume l'historique de laboratoire par enrôlement (data element « Résultat final MVE »).
 
     Agrège les tests successifs (Positif/Négatif/Invalide) : confirmation, dates
     clés, compteurs et drapeaux de réversion (positif puis négatif / invalide).
+    La fenêtre temporelle est déjà appliquée par load_notification_events().
+
+    Args:
+        events: Événements bruts issus de load_notification_events().
 
     Returns:
-        Un résumé labo par enrôlement, enrichi des attributs TEI.
+        Un résumé labo, une ligne par enrôlement testé.
     """
     de_resultat = config.DICO_DE_MAPPING["resultat_final_mve"]
-    fenetre = (pl.col("data_element_id") == de_resultat) & (
-        pl.col("enrolled_at") >= pl.datetime(date_min.year, date_min.month, date_min.day)
-    )
-    if date_max is not None:
-        fenetre = fenetre & (
-            pl.col("enrolled_at") <= pl.datetime(date_max.year, date_max.month, date_max.day)
-        )
 
     lab_summary = (
-        events.filter(fenetre)
+        events.filter(pl.col("data_element_id") == de_resultat)
         .with_columns(
             pl.col("occurred_at").alias("event_dt"),
             (pl.col("value_norm") == "Positif").alias("is_pos"),
             (pl.col("value_norm") == "Négatif").alias("is_neg"),
             (pl.col("value_norm") == "Invalide").alias("is_inv"),
         )
-        .group_by(["enrollment_id", "enrolled_at", "tracked_entity_id"])
+        .sort(["enrollment_id", "event_dt", "created_at"], nulls_last=True)
+        .group_by(["enrollment_id", "enrolled_at", "tracked_entity_id"], maintain_order=True)
         .agg(
             # A déjà été positif au moins une fois
             pl.col("is_pos").any().alias("lab_confirme"),
             # Date du premier test positif
             pl.col("event_dt").filter(pl.col("is_pos")).min().alias("date_confirmation"),
             # Statut du dernier test connu
-            pl.col("value_norm").sort_by("event_dt").last().alias("lab_resultat_courant"),
+            pl.col("value_norm").last().alias("lab_resultat_courant"),
             # Date du dernier test
             pl.col("event_dt").max().alias("date_dernier_test"),
             # Compteurs de tests
@@ -289,21 +494,181 @@ def build_lab_summary(
             pl.col("is_neg").sum().alias("n_neg"),
             pl.col("is_inv").sum().alias("n_inv"),
             # Positif puis négatif / invalide (réversion du statut)
-            (
-                pl.col("is_pos").any()
-                & (pl.col("value_norm").sort_by("event_dt").last() == "Négatif")
-            ).alias("flag_pos_puis_neg"),
-            (
-                pl.col("is_pos").any()
-                & (pl.col("value_norm").sort_by("event_dt").last() == "Invalide")
-            ).alias("flag_pos_puis_inv"),
+            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Négatif")).alias(
+                "flag_pos_puis_neg"
+            ),
+            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Invalide")).alias(
+                "flag_pos_puis_inv"
+            ),
         )
     )
     n_confirmes = int(lab_summary.get_column("lab_confirme").sum())
     current_run.log_info(
         f"Résumé labo : {lab_summary.height} enrôlements testés, dont {n_confirmes} confirmés."
     )
-    return lab_summary.join(tei, on="tracked_entity_id", how="left")
+    return lab_summary
+
+
+def build_line_list(
+    enrollments: pl.DataFrame,
+    tei: pl.DataFrame,
+    org_units: pl.DataFrame,
+    lab_summary: pl.DataFrame,
+    event_dates: pl.DataFrame,
+) -> pl.DataFrame:
+    """Construit la LLN publiée dans le dataset (un enrôlement par ligne).
+
+    Renomme les data elements (config.DATASET_LLN_MAPPING), joint les attributs
+    TEI, la fenêtre d'événements et le résumé labo, canonise la géographie puis
+    applique le schéma publié config.DATASET_LLN_COLS.
+
+    Args:
+        enrollments: Pivot au grain enrôlement.
+        tei: Attributs d'entité suivie.
+        org_units: Unités d'organisation (hiérarchie géographique).
+        lab_summary: Résumé de l'historique laboratoire.
+        event_dates: Fenêtre d'événements par enrôlement.
+
+    Returns:
+        La LLN au schéma config.DATASET_LLN_COLS, triée de façon déterministe.
+    """
+    de_columns = [de for de in config.DATASET_LLN_MAPPING if de in enrollments.columns]
+    lln = enrollments.select(
+        [
+            "enrollment_id",
+            "tracked_entity_id",
+            pl.col("enrollment_org_unit").alias("organisation_unit_id"),
+            "enrolled_at",
+            *de_columns,
+        ]
+    ).rename({de: nom for de, nom in config.DATASET_LLN_MAPPING.items() if de in de_columns})
+
+    lln = lln.join(tei, on="tracked_entity_id", how="inner")
+    lln = lln.join(event_dates, on="enrollment_id", how="left")
+
+    lln = lln.join(
+        lab_summary.drop("enrolled_at", "tracked_entity_id", "lab_resultat_courant"),
+        on="enrollment_id",
+        how="left",
+    )
+
+    cols_texte = [
+        col for col in lln.columns if col.startswith("date_") and lln.schema[col] == pl.String
+    ]
+    lln = lln.with_columns(
+        pl.col(cols_texte).str.strip_chars().str.slice(0, 10).str.to_date("%Y-%m-%d", strict=False)
+    ).with_columns(pl.col(["date_confirmation", "date_dernier_test"]).cast(pl.Date, strict=False))
+
+    # Géographie : libellés canonisés (« it Ituri Province » -> « Ituri »)
+    lln = dataframe.join_object_names(df=lln, organisation_units=org_units)
+    lln = lln.rename({brut: nom for brut, nom in GEO_RENAME.items() if brut in lln.columns})
+    lln = lln.with_columns(
+        [
+            canoniser_geo_expr(niveau)
+            for niveau in ("province", "zone_sante", "aire_sante")
+            if niveau in lln.columns
+        ]
+    )
+
+    lln = apply_dataset_schema(lln, config.DATASET_LLN_COLS)
+    current_run.log_info(
+        f"LLN partagée : {lln.height} enrôlements, "
+        f"{lln['tracked_entity_id'].n_unique()} entités suivies, {lln.width} colonnes."
+    )
+    # Tri déterministe : garantit un parquet reproductible octet à octet, donc
+    # une nouvelle version de dataset uniquement quand les données changent.
+    return lln.sort(["enrolled_at", "enrollment_id"], nulls_last=True)
+
+
+def apply_dataset_schema(df: pl.DataFrame, colonnes: list[str]) -> pl.DataFrame:
+    """Applique le schéma publié : colonnes manquantes créées à NULL, ordre figé.
+
+    Args:
+        df: LLN construite depuis la source.
+        colonnes: Schéma cible (config.DATASET_LLN_COLS).
+
+    Returns:
+        Le DataFrame restreint et ordonné selon ``colonnes``.
+    """
+    manquantes = [col for col in colonnes if col not in df.columns]
+    if manquantes:
+        current_run.log_warning(
+            f"LLN : {len(manquantes)} colonne(s) absente(s) de la source, créée(s) à NULL "
+            f"({', '.join(manquantes)})."
+        )
+        df = df.with_columns([pl.lit(None, dtype=pl.String).alias(col) for col in manquantes])
+    return df.select(colonnes)
+
+
+def write_lln_parquet(lln: pl.DataFrame) -> Path:
+    """Écrit la LLN dans le dossier de travail du workspace, sous un nom stable.
+
+    Args:
+        lln: LLN au schéma publié.
+
+    Returns:
+        Le chemin du parquet écrit.
+    """
+    dossier = Path(workspace.files_path, *config.LLN_EXPORT_DIR.split("/"))
+    dossier.mkdir(parents=True, exist_ok=True)
+    chemin = dossier / config.LLN_DATASET_FILE
+    lln.write_parquet(chemin)
+    current_run.log_info(f"LLN écrite dans « {chemin} » ({chemin.stat().st_size / 1e6:.1f} Mo).")
+    return chemin
+
+
+def build_lln_metadata(
+    lln: pl.DataFrame,
+    date_min: date,
+    date_max: date | None,
+    horodatage: datetime,
+) -> dict[str, object]:
+    """Décrit la LLN publiée : périmètre, volumétrie, remplissage, confidentialité.
+
+    Ce dictionnaire est publié en JSON à côté du parquet : sans lui, le workspace
+    consommateur ne peut savoir ni quelle fenêtre est couverte, ni quelles
+    colonnes sont vides faute de collecte.
+
+    Args:
+        lln: LLN au schéma publié.
+        date_min: Borne basse de la fenêtre sur enrolled_at.
+        date_max: Borne haute de la fenêtre, ou None.
+        horodatage: Instant de génération (UTC).
+
+    Returns:
+        Les métadonnées du fichier, sérialisables en JSON.
+    """
+    total = lln.height
+    non_nuls = {col: total - lln[col].null_count() for col in lln.columns}
+    remplissage = {col: round(100 * n / total, 1) for col, n in non_nuls.items()} if total else {}
+    # Compté sur les valeurs, pas sur le pourcentage arrondi : une colonne
+    # remplie à 0,04 % arrondit à 0,0 sans être vide pour autant.
+    vides = [col for col, n in non_nuls.items() if n == 0]
+    if vides:
+        current_run.log_warning(
+            f"LLN : {len(vides)} colonne(s) entièrement vide(s) sur la période "
+            f"({', '.join(vides)})."
+        )
+    return {
+        "pipeline": "compute_indicators_mve_tdb",
+        "genere_le": horodatage.isoformat(timespec="seconds"),
+        "source": f"public.{config.EVENTS_TABLE} (événements du tracker MVE, format long)",
+        "grain": "un enrôlement (enrollment_id) par ligne",
+        "fenetre_enrolled_at": {
+            "min": date_min.isoformat(),
+            "max": date_max.isoformat() if date_max else None,
+        },
+        "lignes": total,
+        "colonnes": lln.width,
+        "entites_suivies": lln["tracked_entity_id"].n_unique(),
+        "taux_remplissage_pct": remplissage,
+        "colonnes_vides": vides,
+        "confidentialite": (
+            "Liste linéaire nominative. Contient des quasi-identifiants (numéro Epid, "
+            "identifiant labo, âge, sexe, profession, aire de santé) et des coordonnées "
+            "GPS du domicile : diffusion restreinte aux personnes habilitées."
+        ),
+    }
 
 
 def consolidate_line_list(
@@ -333,14 +698,13 @@ def consolidate_line_list(
     }
     line_list = line_list.rename(de_vers_nom)
 
-    # Data elements jamais collectés sur la période → colonnes vides.
-    # Typées Utf8 (et non Null) : ADBC/PostgreSQL rejette le type Arrow « na ».
+    # Data elements jamais collectés sur la période → colonnes vides
     de_absents = [nom for nom in config.DICO_DE_MAPPING if nom not in line_list.columns]
-    line_list = line_list.with_columns(pl.lit(None, dtype=pl.Utf8).alias(nom) for nom in de_absents)
+    line_list = line_list.with_columns(pl.lit(None).alias(nom) for nom in de_absents)
 
     line_list = line_list.select(["tracked_entity_id", *config.RENAME_MAP.values()])
     line_list = line_list.join(
-        lab_summary.select(config.COLS_PRELEV),
+        lab_summary.join(tei, on="tracked_entity_id", how="left").select(config.COLS_PRELEV),
         on="tracked_entity_id",
         how="left",
     )
@@ -408,7 +772,7 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
         line_list["lien_epidemiologique"] == "Oui"
     )
 
-    # Stage PEC désactivé : la modalité de sortie n'est pas collectée → guéri = Faux
+    # Guérison : modalité de sortie du CTE (DE « Statut au moment de la sortie »).
     modalite_sortie = line_list.get("modalite_sortie_cte")
     line_list["is_gueri"] = modalite_sortie.eq("Guéri(e)") if modalite_sortie is not None else False
     line_list["is_confirme_gueri"] = line_list["is_confirme"] & line_list["is_gueri"]
@@ -419,62 +783,18 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     current_run.log_info(
         f"Indicateurs au grain cas : {len(line_list)} cas, "
         f"{int(line_list['is_confirme'].sum())} confirmés, "
-        f"{int(line_list['is_deces_confirme'].sum())} décès confirmés."
+        f"{int(line_list['is_deces_confirme'].sum())} décès confirmés, "
+        f"{int(line_list['is_gueri'].sum())} guéris."
     )
+
+    n_derive = int(line_list["is_confirme"].sum())
+    n_classification = int((line_list["classification_finale_cas"] == "Cas confirmé").sum())
+    if n_derive != n_classification:
+        current_run.log_warning(
+            f"Écart de confirmation : {n_derive} cas via labo + alerte validée contre "
+            f"{n_classification} « Cas confirmé » selon la classification finale DHIS2."
+        )
     return line_list
-
-
-@compute_indicators_mve_tdb.task
-def build_org_units(
-    org_units: pl.DataFrame,
-    niveau: Literal["province", "zone_sante"],
-) -> pl.DataFrame:
-    """Prépare les unités d'organisation d'un niveau donné (province ou zone de santé).
-
-    Filtre sur le niveau hiérarchique, reconstruit la hiérarchie géographique et
-    extrait l'anneau extérieur du polygone, sérialisé en JSON (jointure carto).
-
-    Args:
-        org_units: Unités d'organisation issues de la toolbox DHIS2.
-        niveau: « province » (level 2) ou « zone_sante » (level 3).
-
-    Returns:
-        Les unités du niveau demandé, avec geo_hierarchie et coordinates (JSON).
-    """
-    if niveau == "zone_sante":
-        level, cols_geo = 3, ["level_1_name", "level_2_name", "level_3_name"]
-    else:
-        level, cols_geo = 2, ["level_1_name", "level_2_name"]
-
-    def _anneau_exterieur(geom: object) -> object:
-        """Anneau extérieur du polygone (les ZS sont imbriquées d'un niveau de plus).
-
-        Returns:
-            La liste de coordonnées de l'anneau extérieur, ou None si absente.
-        """
-        if not isinstance(geom, str):
-            return None
-        coords = json.loads(geom)["coordinates"][0]
-        return coords[0] if niveau == "zone_sante" else coords
-
-    prepared = (
-        org_units.filter((pl.col("level") == level) & pl.col("geometry").is_not_null())
-        .with_columns(
-            pl.concat_str(cols_geo, separator=" / ").alias("geo_hierarchie"),
-            pl.col("geometry")
-            .map_elements(_anneau_exterieur, return_dtype=pl.Object)
-            .alias("coordinates"),
-        )
-        .with_columns(
-            pl.col("coordinates")
-            .map_elements(json.dumps, return_dtype=pl.Utf8)
-            .alias("coordinates")
-        )
-    )
-    current_run.log_info(
-        f"Unités d'organisation « {niveau} » préparées : {prepared.height} géométries."
-    )
-    return prepared
 
 
 def reconstruct_date_deces(df: pd.DataFrame) -> pd.Series:
@@ -547,7 +867,7 @@ def build_line_list_individu(
         how="left",
     )
 
-    # ── Délais (jours, float — bornés aux valeurs plausibles) ────────────────
+    # ── Délais (jours, float - bornés aux valeurs plausibles) ────────────────
     for nom, (col_fin, col_debut) in config.DELAI_DEFS.items():
         delai = (line_list[col_fin] - line_list[col_debut]).dt.total_seconds() / 86_400
         min_, max_ = config.DELAI_BORNES[nom]
@@ -570,7 +890,7 @@ def build_line_list_individu(
         right=False,
     ).astype("object")
 
-    # Schéma publié — reindex pour tolérer une colonne absente (créée à NULL
+    # Schéma publié - reindex pour tolérer une colonne absente (créée à NULL
     # plutôt que de lever KeyError).
     manquantes = [c for c in config.LLN_COLS if c not in line_list.columns]
     if manquantes:
@@ -697,7 +1017,7 @@ def ingerer_adbc(
     }
 
     table_arrow = frame.to_arrow(compat_level=pl.CompatLevel.oldest())
-    with pg_dbapi.connect(db_url) as conn, conn.cursor() as cursor:
+    with pgdbapi.connect(db_url) as conn, conn.cursor() as cursor:
         cursor.adbc_ingest(table_name, table_arrow, mode=modes[mode])
         conn.commit()
 
@@ -760,8 +1080,6 @@ def export_to_database(
         current_run.log_error(f"Échec de l'écriture ADBC de « {table_name} » : {echec_adbc}")
         current_run.log_error(f"Schéma envoyé ({frame.height} lignes) : {schema}")
 
-        # Repli : SQLAlchemy (INSERT ligne à ligne) — plus lent, mais évite de
-        # laisser le tableau de bord sur des données périmées.
         current_run.log_warning(f"Repli SQLAlchemy pour « {table_name} » (écriture dégradée).")
         echec_repli: str | None = None
         try:
@@ -773,12 +1091,50 @@ def export_to_database(
 
         if echec_repli is not None:
             raise RuntimeError(
-                f"Écriture de « {table_name} » échouée — ADBC : {echec_adbc} "
-                f"— repli SQLAlchemy : {echec_repli}"
+                f"Écriture de « {table_name} » échouée - ADBC : {echec_adbc} "
+                f"- repli SQLAlchemy : {echec_repli}"
             )
 
     current_run.log_info(f"Table « {table_name} » écrite ({mode}) : {len(df)} lignes.")
+    verifier_export(frame, table_name, db_url)
     current_run.add_database_output(table_name)
+
+
+def verifier_export(frame: pl.DataFrame, table_name: str, db_url: str) -> None:
+    """Relit la table publiée et compare volumétrie et cardinalités à la source.
+
+    Args:
+        frame: Données telles qu'envoyées à la base.
+        table_name: Table à relire.
+        db_url: URI de connexion à la base du workspace.
+
+    Raises:
+        RuntimeError: Si la volumétrie ou une cardinalité diffère de la source.
+    """
+    temoins = [col for col in config.COLS_TEMOINS if col in frame.columns]
+    projection = ", ".join(
+        ["count(*) AS lignes", *[f'count(DISTINCT "{col}") AS "d_{col}"' for col in temoins]]
+    )
+    relu = pl.read_database_uri(
+        f'SELECT {projection} FROM "public"."{table_name}"', uri=db_url
+    ).row(0, named=True)
+
+    ecarts = []
+    if int(relu["lignes"]) != frame.height:
+        ecarts.append(f"{relu['lignes']} lignes en base contre {frame.height} envoyées")
+    for col in temoins:
+        # count(DISTINCT) ignore les NULL, n_unique() les compte : on aligne.
+        attendu = frame[col].n_unique() - (1 if frame[col].null_count() else 0)
+        obtenu = int(relu[f"d_{col}"])
+        if obtenu != attendu:
+            ecarts.append(f"{col} : {obtenu} valeurs distinctes en base contre {attendu} attendues")
+
+    if ecarts:
+        raise RuntimeError(f"Contrôle de l'export « {table_name} » - " + " ; ".join(ecarts))
+    current_run.log_info(
+        f"Contrôle de « {table_name} » : volumétrie et cardinalités conformes "
+        f"({', '.join(temoins) or 'aucune colonne témoin'})."
+    )
 
 
 if __name__ == "__main__":
