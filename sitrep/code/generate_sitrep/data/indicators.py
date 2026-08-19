@@ -7,30 +7,42 @@ Principes de conception
   Aucune condition ne croise des DE de stages différents sans passer par le pivot.
 - Distinction explicite CUMUL vs STOCK dans le nom de chaque indicateur.
 - Sémantique des codes vérifiée sur l'optionSet réel (pas supposée).
-- Données manquantes -> ND, jamais zéro implicite. Les indicateurs de STOCK
-  dépendent du stage "Statut final" ; s'il est trop peu rempli, ils sont
-  automatiquement neutralisés (mis à None) par le garde-fou de complétude.
+- **Restitution fidèle à la source** : aucun indicateur n'est masqué parce que son
+  stage est peu rempli. Un stage partiellement saisi produit des compteurs
+  faibles, ce qui est l'information réelle. Le ND est réservé aux champs
+  réellement absents de l'extraction (suivi des contacts, lits CTE) et décidé
+  côté ``reporting``, jamais ici.
+
+CODES et non libellés
+------------------------
+``build_pivot`` pivote ``values="value"`` : toutes les conditions de ce module
+comparent donc des **codes** d'optionSet (``D``, ``CC``, ``VAL``, ``GR``, ``POS``).
+Le pipeline de tableau de bord ``compute_indicators_mve_tdb`` pivote au contraire
+``value_norm``, soit les **libellés** décodés (« Décédé », « Cas confirmé »,
+« Guéri(e) », « Positif »). Une condition transposée d'un pipeline à l'autre sans
+traduction ne lève aucune erreur : elle ne matche simplement jamais. Exemple
+vérifié : le code de la nature d'alerte est ``DCD``, pas « Décès » — comparé au
+libellé, l'indicateur vaut 0 en silence. Ne pas copier de code entre les deux
+modules ; retraduire.
 
 Sémantique confirmée des data elements
 --------------------------------------
+  kdOYmDgoyAA  Nature de l'alerte    (stage Notification)  : Cas / DCD (entrée décédé)
   KhsBtTYkFZd  Conclusion alerte     (stage Notification)  : VAL / INV / Enc / Ninv
   D6kduc7OZnS  Classification cas    (stage Labo)           : CC / CP / CS / NC
   j6xabrRDJuo  Résultat labo final   (stage Labo)           : POS / NEG / INV
   nniQIfMGBDC  Statut AU PRÉLÈVEMENT (stage Prélèvement)    : V / D   (figé, != devenir)
-  Za0cx3pmcWW  Statut FINAL          (stage Statut final)   : D / V   (devenir, ~7% rempli)
+  Za0cx3pmcWW  Statut FINAL          (stage Statut final)   : D / V   (devenir, ~5% rempli)
+  x1aazi4fgKO  Date de décès         (stage Statut final)   : DATE
+  fWBGDpJezOX  Date de décès PCI     (stage PCI)            : DATE
   W2u38gg9Jy8  Date sortie isolement (stage Statut final)   : DATE
   jHaeHsB6JbW  Devenir cas suspect   (stage Notification)   : CTE / TCTE / PREL / RTP
   USnTDONKNN8  Type de prélèvement   (stage Prélèvement)
+  CxQAC5LkMtn  Date du prélèvement   (stage Prélèvement)    : DATE
   HBw0c2Cg8GU  Date réception labo   (stage Labo)
   F0gpBf9R11P  Date investigation    (stage Notification)
-
-Usage
------
-    from indicateurs_mve import construire_pivot, calculer_indicateurs, agreger_par_zone
-
-    piv = construire_pivot(df_mve_notif, date_min=date(2026, 5, 1))
-    df_ind = calculer_indicateurs(piv)            # 1 ligne / enrollment + colonnes indicateurs
-    df_zone = agreger_par_zone(df_ind, org_units) # agrégat géographique pour le SitRep
+  WKZu0kp6wWu  Issue de la PEC       (stage Prise en charge): GR / DCD / EVD / TRF /
+                                                              NC / RMCAR / Abandon / Référé
 """  # noqa: D205
 
 from __future__ import annotations
@@ -49,42 +61,62 @@ DE_STATUT_FINAL = "Za0cx3pmcWW"
 DE_DATE_SORTIE_ISOLEMENT = "W2u38gg9Jy8"
 DE_DEVENIR_SUSPECT = "jHaeHsB6JbW"
 DE_TYPE_PRELEVEMENT = "USnTDONKNN8"
+DE_DATE_PRELEVEMENT = "CxQAC5LkMtn"  # 183 - MVE - S5 - Date du prélèvement
 DE_DATE_RECEPTION_LABO = "HBw0c2Cg8GU"
 DE_DATE_INVESTIGATION = "F0gpBf9R11P"
 
+# --- Nature de l'alerte : le patient entre-t-il dans le programme décédé ? ---
+DE_NATURE_ALERTE = "kdOYmDgoyAA"  # MVE-N Nature de l'Alerte (stage Notification)
+NATURE_ALERTE_DECES = "DCD"  # code du décès ; value_norm dirait « Décès »
+
+# --- Dates de décès réellement saisies (hors statuts) ---
+DE_DATE_DECES_S6 = "x1aazi4fgKO"  # 208 - MVE - S6 - Date de décès (stage Statut final)
+DE_PCI_DATE_DECES = "fWBGDpJezOX"  # MVE - PCI9 - Date de décès (stage PCI)
+
 # --- Stage PRISE EN CHARGE (PEC) — devenir réel du patient ---
-# Non encore présent dans l'extraction actuelle ; le module bascule en mode
-# dégradé (ND) tant que ces DE sont absents.
 DE_PEC_DATE_ADMISSION = "KGsTJ4jV7Fb"  # MVE - PEC - Date d'admission
 DE_PEC_DATE_SORTIE = "Xy5J5MGpaZ7"  # MVE - PEC - Date de sortie
 DE_PEC_ISSUE = "WKZu0kp6wWu"  # Statut au moment de la sortie (optionSet eCWs0ZcUuRq)
-# Codes de l'optionSet "MVE - Issue du patient" (eCWs0ZcUuRq) :
 ISSUE_GUERI = "GR"  # Guéri(e)
 ISSUE_DECEDE = "DCD"  # Décédé(e)
 ISSUE_EVADE = "EVD"  # Évadé(e)
 ISSUE_TRANSFERE = "TRF"  # Transféré(e)
 ISSUE_NON_CAS = "NC"  # Non cas
+ISSUE_RETOUR_MAISON = "RMCAR"  # Retour à la maison
+ISSUE_ABANDON = "Abandon"  # Abandon (libellé, pas de code)
+ISSUE_REFERE = "Référé"  # Référé (libellé, pas de code)
 # Sorties = ne sont plus en isolement (toute issue documentée vide le lit)
-ISSUES_SORTIE = [ISSUE_GUERI, ISSUE_DECEDE, ISSUE_EVADE, ISSUE_TRANSFERE, ISSUE_NON_CAS]
+ISSUES_SORTIE = [
+    ISSUE_GUERI,
+    ISSUE_DECEDE,
+    ISSUE_EVADE,
+    ISSUE_TRANSFERE,
+    ISSUE_NON_CAS,
+    ISSUE_RETOUR_MAISON,
+    ISSUE_ABANDON,
+    ISSUE_REFERE,
+]
 
 # Codes d'isolement comptés comme "orienté vers une structure d'isolement"
 CODES_ISOLEMENT = ["CTE", "TCTE"]  # CTE = isolé au CTE, TCTE = transféré vers CTE
 
-# Seuil de complétude du stage "Statut final" en dessous duquel les
-# indicateurs de STOCK ne sont pas fiables et sont neutralisés (-> None / ND).
-SEUIL_COMPLETUDE_STATUT_FINAL = 0.50
-
-# Indicateurs de STOCK soumis au garde-fou de complétude.
+# Indicateurs de STOCK (photo à date, dépendent du devenir du patient).
 INDICATEURS_STOCK = ["n_isole_stock", "n_cas_actifs_stock"]
 
-# Indicateurs basés sur la PEC (devenir réel). Fiables uniquement quand le
-# stage PEC est présent ET suffisamment rempli ; sinon -> ND.
+# Indicateurs basés sur la PEC (devenir réel du patient pris en charge).
 INDICATEURS_PEC = [
     "n_gueris",
     "n_deces_pec",
     "n_evades",
     "n_transferes",
     "n_isole_stock_pec",
+    "n_pec_admis",
+    "n_pec_encore_admis",
+    "n_pec_sorties",
+    "n_pec_non_cas",
+    "n_pec_retour_maison",
+    "n_pec_abandon",
+    "n_pec_refere",
 ]
 
 # Indicateurs de FLUX/CUMUL toujours fiables (ne dépendent pas du devenir).
@@ -145,24 +177,58 @@ def build_pivot(
         ]
     ).unique(subset="enrollment_org_unit", keep="last")
 
-    df_pivot = (
-        df_mve_notif.filter(flt)
-        .sort(["tracked_entity_id", "enrollment_id", "created_at"])
-        .pivot(
-            on="data_element_id",
-            index=[
-                "enrollment_id",
-                "tracked_entity_id",
-                "enrollment_org_unit",
-                "enrolled_at",
-            ],
-            values="value",
-            aggregate_function="last",
-        )
-        .with_columns(pl.col("enrolled_at").dt.date())
+    retenus = df_mve_notif.filter(flt)
+    cles_tri = [c for c in ("occurred_at", "created_at", "event_id") if c in retenus.columns]
+
+    contexte = retenus.group_by("enrollment_id").agg(
+        pl.col("tracked_entity_id").sort_by(cles_tri, nulls_last=True).last(),
+        pl.col("enrolled_at").sort_by(cles_tri, nulls_last=True).last(),
+        pl.col("enrollment_org_unit").sort_by(cles_tri, nulls_last=True).last(),
     )
 
+    valeurs = retenus.sort(cles_tri, nulls_last=True).pivot(
+        on="data_element_id",
+        index="enrollment_id",
+        values="value",
+        aggregate_function="last",
+    )
+
+    df_pivot = (
+        contexte.join(valeurs, on="enrollment_id", how="left")
+        .with_columns(pl.col("enrolled_at").dt.date())
+        .join(build_lab_history(retenus), on="enrollment_id", how="left")
+    )
     return df_pivot.join(org_units, on="enrollment_org_unit", how="left")
+
+
+def build_lab_history(df_long: pl.DataFrame) -> pl.DataFrame:
+    """Résume l'historique des tests de laboratoire, une ligne par enrôlement.
+
+    Le pivot ne retient que la DERNIÈRE valeur du résultat labo : un cas positif
+    puis retesté négatif ou invalide y apparaît non positif, alors qu'il reste un
+    échantillon positif dans le décompte du laboratoire. Cette agrégation conserve
+    donc l'historique complet, sans changer le grain du pivot.
+
+    Args:
+        df_long: Extraction au format long, déjà filtrée sur la fenêtre.
+
+    Returns:
+        Une ligne par enrôlement testé : ``lab_confirme`` (au moins un positif),
+        ``date_confirmation`` (premier positif), ``n_tests_labo`` et
+        ``flag_pos_puis_neg`` (positif dont le dernier résultat ne l'est plus).
+    """
+    est_pos = pl.col("value") == "POS"
+    return (
+        df_long.filter(pl.col("data_element_id") == DE_RESULTAT_LABO)
+        .sort(["enrollment_id", "created_at"])
+        .group_by("enrollment_id", maintain_order=True)
+        .agg(
+            est_pos.any().alias("lab_confirme"),
+            pl.col("created_at").filter(est_pos).min().alias("date_confirmation"),
+            pl.len().alias("n_tests_labo"),
+            (est_pos.any() & (pl.col("value").last() != "POS")).alias("flag_pos_puis_neg"),
+        )
+    )
 
 
 def _col(df: pl.DataFrame, de_id: str) -> pl.Expr:
@@ -179,16 +245,12 @@ def _col(df: pl.DataFrame, de_id: str) -> pl.Expr:
     return pl.lit(None, dtype=pl.Utf8).alias(de_id)
 
 
-def compute_indicators_mve_notifications(
-    df_pivot: pl.DataFrame,
-    appliquer_garde_fou_stock: bool = True,
-) -> pl.DataFrame:
+def compute_indicators_mve_notifications(df_pivot: pl.DataFrame) -> pl.DataFrame:
     """Ajoute les colonnes indicateurs (0/1 par enrollment) au pivot.
 
-    Si appliquer_garde_fou_stock=True (défaut), les indicateurs de STOCK
-    sont mis à None lorsque la complétude du stage "Statut final" est
-    inférieure à SEUIL_COMPLETUDE_STATUT_FINAL — auquel cas ils devront
-    être affichés "ND" dans le SitRep plutôt qu'un chiffre trompeur.
+    Chaque indicateur restitue ce que porte la source, sans masquage : un stage
+    peu rempli produit des compteurs faibles, pas des « ND ». Le ND est réservé
+    aux champs réellement absents de l'extraction, décidé côté ``reporting``.
     """  # noqa: DOC201
     c_concl = _col(df_pivot, DE_CONCLUSION_ALERTE)
     c_class = _col(df_pivot, DE_CLASSIFICATION)
@@ -203,12 +265,36 @@ def compute_indicators_mve_notifications(
     c_pec_issue = _col(df_pivot, DE_PEC_ISSUE)
     c_pec_adm = _col(df_pivot, DE_PEC_DATE_ADMISSION)
     c_pec_sortie = _col(df_pivot, DE_PEC_DATE_SORTIE)
+    c_deces_s6 = _col(df_pivot, DE_DATE_DECES_S6)
+    c_deces_pci = _col(df_pivot, DE_PCI_DATE_DECES)
+    c_nature = _col(df_pivot, DE_NATURE_ALERTE)
+    c_date_prel = _col(df_pivot, DE_DATE_PRELEVEMENT)
+    c_lab_confirme = (
+        pl.col("lab_confirme")
+        if "lab_confirme" in df_pivot.columns
+        else pl.lit(None, dtype=pl.Boolean)
+    )
 
-    est_decede = (c_final == "D") | (c_prel == "D")
+    est_decede = (
+        (c_nature == NATURE_ALERTE_DECES)
+        | (c_final == "D")
+        | (c_prel == "D")
+        | c_deces_s6.is_not_null()
+        | c_deces_pci.is_not_null()
+    )
+
+    est_vivant = ~est_decede.fill_null(value=False)
+    est_gueri = (c_pec_issue == ISSUE_GUERI).fill_null(value=False)
     est_oriente_isolement = c_devenir.is_in(CODES_ISOLEMENT)
-    echantillon_collecte = c_type_prel.is_not_null() & c_recep.is_not_null()
 
-    df = df_pivot.with_columns(
+    echantillon_collecte = c_date_prel.is_not_null() | (
+        c_type_prel.is_not_null() & c_recep.is_not_null()
+    )
+    # Positivité : l'historique complet des tests, pas le dernier résultat connu.
+    echantillon_positif = c_lab_confirme.fill_null(value=False) | (c_labo == "POS")
+    est_admis_pec = c_pec_adm.is_not_null()
+
+    return df_pivot.with_columns(
         # ---- CAS (cumul) ----
         pl.when(c_class == "CC").then(1).otherwise(0).alias("n_confirmes"),
         pl.when(c_class == "CP").then(1).otherwise(0).alias("n_probables"),
@@ -229,23 +315,41 @@ def compute_indicators_mve_notifications(
         pl.when((c_class == "CS") & est_decede).then(1).otherwise(0).alias("n_deces_suspect"),
         # ---- DEVENIR via PRISE EN CHARGE (PEC) — source dédiée ----
         # Issue du patient (optionSet eCWs0ZcUuRq). GR = vrai code "guéri".
-        pl.when(c_pec_issue == ISSUE_GUERI).then(1).otherwise(0).alias("n_gueris"),
+        pl.when(est_gueri).then(1).otherwise(0).alias("n_gueris"),
         pl.when(c_pec_issue == ISSUE_DECEDE).then(1).otherwise(0).alias("n_deces_pec"),
         pl.when(c_pec_issue == ISSUE_EVADE).then(1).otherwise(0).alias("n_evades"),
         pl.when(c_pec_issue == ISSUE_TRANSFERE).then(1).otherwise(0).alias("n_transferes"),
-        # STOCK isolés fiable via PEC : admis (date d'admission) sans issue de sortie.
-        pl.when(c_pec_adm.is_not_null() & c_pec_issue.is_null() & c_pec_sortie.is_null())
+        pl.when(c_pec_issue == ISSUE_NON_CAS).then(1).otherwise(0).alias("n_pec_non_cas"),
+        pl.when(c_pec_issue == ISSUE_RETOUR_MAISON)
+        .then(1)
+        .otherwise(0)
+        .alias("n_pec_retour_maison"),
+        pl.when(c_pec_issue == ISSUE_ABANDON).then(1).otherwise(0).alias("n_pec_abandon"),
+        pl.when(c_pec_issue == ISSUE_REFERE).then(1).otherwise(0).alias("n_pec_refere"),
+        # Admissions et sorties (alimentent le mouvement des malades, Tableau VII).
+        pl.when(est_admis_pec).then(1).otherwise(0).alias("n_pec_admis"),
+        pl.when(c_pec_issue.is_in(ISSUES_SORTIE)).then(1).otherwise(0).alias("n_pec_sorties"),
+        # STOCK isolés fiable via PEC : admis (date d'admission) sans sortie
+        # documentée — ni issue connue, ni date de sortie.
+        pl.when(
+            est_admis_pec
+            & ~c_pec_issue.is_in(ISSUES_SORTIE).fill_null(value=False)
+            & c_pec_sortie.is_null()
+        )
         .then(1)
         .otherwise(0)
         .alias("n_isole_stock_pec"),
+        pl.when(
+            est_admis_pec
+            & ~c_pec_issue.is_in(ISSUES_SORTIE).fill_null(value=False)
+            & c_pec_sortie.is_null()
+        )
+        .then(1)
+        .otherwise(0)
+        .alias("n_pec_encore_admis"),
         # ---- ISOLEMENT ----
         pl.when(est_oriente_isolement).then(1).otherwise(0).alias("n_orientes_isolement_cumul"),
-        pl.when(
-            est_oriente_isolement
-            & c_sortie.is_null()
-            & (c_final != "D").fill_null(True)
-            & (c_prel != "D").fill_null(True)
-        )
+        pl.when(est_oriente_isolement & c_sortie.is_null() & est_vivant)
         .then(1)
         .otherwise(0)
         .alias("n_isole_stock"),
@@ -258,12 +362,7 @@ def compute_indicators_mve_notifications(
         .otherwise(0)
         .alias("n_suspect_isole"),
         # ---- CAS CONFIRMÉS ACTIFS (stock) ----
-        pl.when(
-            (c_class == "CC")
-            & (c_final != "D").fill_null(True)
-            & (c_prel != "D").fill_null(True)
-            & c_sortie.is_null()
-        )
+        pl.when((c_class == "CC") & est_vivant & ~est_gueri & c_sortie.is_null())
         .then(1)
         .otherwise(0)
         .alias("n_cas_actifs_stock"),
@@ -277,7 +376,7 @@ def compute_indicators_mve_notifications(
         pl.when(c_concl == "INV").then(1).otherwise(0).alias("n_alertes_invalidees"),
         # ---- ÉCHANTILLONS ----
         pl.when(echantillon_collecte).then(1).otherwise(0).alias("n_echantillons_collectes"),
-        pl.when(echantillon_collecte & (c_labo == "POS"))
+        pl.when(echantillon_collecte & echantillon_positif)
         .then(1)
         .otherwise(0)
         .alias("n_echantillons_positifs"),
@@ -289,59 +388,32 @@ def compute_indicators_mve_notifications(
         .then(1)
         .otherwise(0)
         .alias("n_echantillons_invalides"),
-        pl.when((c_class == "CC") & est_decede & echantillon_collecte & (c_labo == "POS"))
+        pl.when((c_class == "CC") & est_decede & echantillon_collecte & echantillon_positif)
         .then(1)
         .otherwise(0)
         .alias("n_positifs_suspect_decedes"),
     )
 
-    if appliquer_garde_fou_stock:
-        df = _neutraliser_stock_si_incomplet(df, df_pivot)
-        df = _neutraliser_pec_si_incomplet(df, df_pivot)
-
-    return df
-
-
-def _neutraliser_pec_si_incomplet(df: pl.DataFrame, df_pivot: pl.DataFrame) -> pl.DataFrame:
-    """Neutralise les indicateurs PEC (-> None / ND) si le stage Prise en charge
-    est absent de l'extraction ou rempli sous le seuil. Tant que la PEC n'est
-    pas accessible, tous les indicateurs de devenir restent ND.
-    """  # noqa: D205, DOC201
-    if DE_PEC_ISSUE in df_pivot.columns:
-        completude = df_pivot[DE_PEC_ISSUE].is_not_null().mean() or 0.0
-    else:
-        completude = 0.0
-
-    if completude < SEUIL_COMPLETUDE_STATUT_FINAL:  # type: ignore
-        df = df.with_columns([pl.lit(None, dtype=pl.Int32).alias(c) for c in INDICATEURS_PEC])
-    return df
-
-
-def _neutraliser_stock_si_incomplet(df: pl.DataFrame, df_pivot: pl.DataFrame) -> pl.DataFrame:
-    """Si la complétude du stage Statut final < seuil, met les indicateurs de
-    STOCK à None (ils seront affichés ND). Les indicateurs de cumul restent.
-    """  # noqa: D205, DOC201
-    if DE_STATUT_FINAL in df_pivot.columns:
-        completude = df_pivot[DE_STATUT_FINAL].is_not_null().mean() or 0.0
-    else:
-        completude = 0.0
-
-    if completude < SEUIL_COMPLETUDE_STATUT_FINAL:  # type: ignore
-        df = df.with_columns([pl.lit(None, dtype=pl.Int32).alias(c) for c in INDICATEURS_STOCK])
-    return df
-
 
 def diagnostic_completude(df_pivot: pl.DataFrame) -> pl.DataFrame:
-    """Renvoie le taux de remplissage des DE clés (aide à décider des ND)."""  # noqa: DOC201
+    """Renvoie le taux de remplissage des DE clés.
+
+    Outil de lecture, sans effet sur les indicateurs : il sert à interpréter un
+    compteur faible (stage peu saisi) et à repérer un DE absent de l'extraction.
+    """  # noqa: DOC201
     des = [
+        DE_NATURE_ALERTE,
         DE_CONCLUSION_ALERTE,
         DE_CLASSIFICATION,
         DE_RESULTAT_LABO,
         DE_STATUT_PRELEVEMENT,
         DE_STATUT_FINAL,
+        DE_DATE_DECES_S6,
+        DE_PCI_DATE_DECES,
         DE_DATE_SORTIE_ISOLEMENT,
         DE_DEVENIR_SUSPECT,
         DE_TYPE_PRELEVEMENT,
+        DE_DATE_PRELEVEMENT,
         DE_DATE_RECEPTION_LABO,
         DE_DATE_INVESTIGATION,
         DE_PEC_DATE_ADMISSION,
@@ -370,33 +442,35 @@ def build_definitive_from_raw(df_mve: pl.DataFrame) -> pl.DataFrame:
         pl.DataFrame: Le DataFrame nettoyé au schéma interne (grain enrollment,
         drapeaux ``n_*``, attributs TEI, géo canonisée).
     """
+    cles_tri = [c for c in ("occurred_at", "created_at", "event_id") if c in df_mve.columns]
+    attributs = {
+        "num_epid": "MVE - Numéro Epid - Alerte MVE",
+        "date_notification": "MPOX-N-Date et heure de notification de l'alerte",
+        "date_debut_symptomes": "MVE - DDS (Date de début des symptômes)",
+        "sexe": "MVE-N-Sexe",
+        "age": "MVE - Age(ans)",
+        "age_<1an": "MVE-N-Age < 1 an ?",
+    }
     df_tei = (
-        df_mve.select(
+        df_mve.group_by("tracked_entity_id")
+        .agg(
             [
-                pl.col("tracked_entity_id"),
-                pl.col("MVE - Numéro Epid - Alerte MVE").alias("num_epid"),
-                pl.col("MPOX-N-Date et heure de notification de l'alerte").alias(
-                    "date_notification"
-                ),
-                pl.col("MVE - DDS (Date de début des symptômes)").alias("date_debut_symptomes"),
-                pl.col("MVE-N-Sexe").alias("sexe"),
-                pl.col("MVE - Age(ans)").alias("age"),
-                pl.col("MVE-N-Age < 1 an ?").alias("age_<1an"),
+                pl.col(source).sort_by(cles_tri, nulls_last=True).drop_nulls().last().alias(cible)
+                for cible, source in attributs.items()
             ]
         )
-        .unique()
         .with_columns(
             pl.col("date_notification")
             .cast(pl.Datetime, strict=False)
             .dt.date()
             .alias("date_notification"),
-            pl.col("date_debut_symptomes").cast(pl.Date).alias("date_debut_symptomes"),
+            pl.col("date_debut_symptomes")
+            .cast(pl.Date, strict=False)
+            .alias("date_debut_symptomes"),
         )
     )
 
-    df_ind = compute_indicators_mve_notifications(
-        build_pivot(df_mve), appliquer_garde_fou_stock=False
-    )
+    df_ind = compute_indicators_mve_notifications(build_pivot(df_mve))
 
     df_comp = df_ind.join(df_tei, on="tracked_entity_id", how="left")
 

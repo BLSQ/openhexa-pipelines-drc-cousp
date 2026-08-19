@@ -598,25 +598,25 @@ def _insert_analytics(doc: DocumentT, data: SitRepData, charts: dict[str, Path |
             ["Cas suspects en isolement", pc["suspects_isolement"]],
             ["Cas confirmés actifs", pc["actifs"]],
             ["Guéris du jour", pc["gueris_jour"]],
+            ["Patients admis en prise en charge (cumul)", pc["admis"]],
             ["Létalité hospitalière", pc["letalite"]],
             ["Lits CTE disponibles vs occupés", pc["lits"]],
         ]
         cur.add(_table(doc, ["Indicateur", "Valeur"], rows)._tbl)
 
     def fill_mouvement(cur: dx.Cursor) -> None:
-        # 4.5 — Tableau VII : mouvement des patients (non disponible -> à saisir).
+        # 4.5 — Tableau VII : mouvement des patients, dérivé du stage Prise en
+        # charge (dates d'admission / de sortie et issue du patient).
         caption(
             cur,
             f"Tableau VII : Mouvement des malades dans les établissements de soins au {rep_end}",
         )
+        mv = data.mouvement_indics
         rows = [
-            [lab, config.ND]
-            for lab in (
-                "Malades au lit (report veille)",
-                "Nouvelles admissions du jour",
-                "Sorties (guéris / décédés / transférés)",
-                "Malades en isolement",
-            )
+            ["Malades au lit (encore admis)", mv["au_lit"]],
+            ["Nouvelles admissions du jour", mv["admissions_jour"]],
+            ["Sorties du jour (toute issue documentée)", mv["sorties_jour"]],
+            ["Malades en isolement", mv["isolement"]],
         ]
         cur.add(_table(doc, ["Mouvement", "Valeur"], rows)._tbl)
 
