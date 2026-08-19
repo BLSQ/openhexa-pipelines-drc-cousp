@@ -34,6 +34,13 @@ METRICS = [
     "n_evades",
     "n_transferes",
     "n_isole_stock_pec",
+    "n_pec_admis",
+    "n_pec_encore_admis",
+    "n_pec_sorties",
+    "n_pec_non_cas",
+    "n_pec_retour_maison",
+    "n_pec_abandon",
+    "n_pec_refere",
 ]
 
 _RENAME = {

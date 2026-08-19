@@ -40,6 +40,7 @@ class SitRepData:
     surveillance_indics: dict  # gestion des alertes (Tableau III)
     labo_indics: dict  # indicateurs laboratoire (Tableau V)
     prise_en_charge_indics: dict  # indicateurs de prise en charge (Tableau VI)
+    mouvement_indics: dict  # mouvement des malades en PEC (Tableau VII)
     # Portée du rapport : ``None`` = national ; sinon libellé des ZS filtrées
     # (ex. « Zone de Santé : Komanda »), ajouté au titre par ``render``.
     scope_label: str | None = None

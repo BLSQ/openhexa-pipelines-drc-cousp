@@ -6,6 +6,7 @@ import config
 import polars as pl
 from data.model import SitRepData
 from utils.dates import period_label
+from utils.numbers import pct
 
 
 def _order_provinces(provinces: list[str]) -> list[str]:
@@ -90,10 +91,6 @@ def compute(
         "cas_probable": cum_probable,
         "contacts": config.ND,
         "taux_suivi_contacts": config.ND,
-        # Carte « Cas suspects du jour » (bandeau d'accueil) : suspects en cours
-        # sur la période + décès parmi ces suspects. La variable des décès
-        # n'existe pas encore dans l'extraction → ND tant qu'elle est absente
-        # (un simple ajout de colonne suffira à l'activer ici).
         "suspects_jour": s(day, "n_suspects_en_cours"),
         "deces_suspects_jour": s(cum, "n_deces_suspect"),
     }
@@ -253,7 +250,7 @@ def compute(
     tableau1_total = {
         "confirmes": sum(r["confirmes"] for r in tableau1),
         "deces": sum(r["deces"] for r in tableau1),
-        "actifs": sum(r["actifs"] for r in tableau1),
+        "actifs": s(cum, "n_cas_actifs_stock"),
         "gueris": sum(r["gueris"] for r in tableau1),
     }
 
@@ -303,13 +300,30 @@ def compute(
     }
 
     # --- Tableau VI : indicateurs de prise en charge ---------------------
+    # Létalité hospitalière = décès parmi les patients admis en prise en charge.
+    # Distincte de la létalité globale (Tableau I) : dénominateur = les admis,
+    # pas les cas confirmés.
+    admis_cum = s(cum, "n_pec_admis")
+    deces_pec_cum = s(cum, "n_deces_pec")
+    # ND seulement si le dénominateur est nul : un taux n'existe pas sans admission.
+    letalite = pct(deces_pec_cum, admis_cum) if admis_cum else config.ND
     prise_en_charge_indics = {
         "suspects_isolement": s(cum, "n_suspect_isole"),
         "confirmes_isolement": s(cum, "n_confirme_isole"),
         "actifs": s(cum, "n_cas_actifs_stock"),
         "gueris_jour": s(day, "n_gueris"),
-        "letalite": config.ND,
-        "lits": config.ND,
+        "letalite": letalite,
+        "admis": admis_cum,
+        "deces_pec": deces_pec_cum,
+        "lits": config.ND,  # nombre de lits CTE : non collecté par le tracker
+    }
+
+    # --- Tableau VII : mouvement des malades (PEC) ------------------------
+    mouvement_indics = {
+        "au_lit": s(cum, "n_pec_encore_admis"),
+        "admissions_jour": s(day, "n_pec_admis"),
+        "sorties_jour": s(day, "n_pec_sorties"),
+        "isolement": s(cum, "n_isole_stock_pec"),
     }
 
     # --- Pyramide âge x sexe (cas confirmés) -----------------------------
@@ -379,6 +393,7 @@ def compute(
         surveillance_indics=surveillance_indics,
         labo_indics=labo_indics,
         prise_en_charge_indics=prise_en_charge_indics,
+        mouvement_indics=mouvement_indics,
         scope_label=scope_label,
         raw=cum,
     )
