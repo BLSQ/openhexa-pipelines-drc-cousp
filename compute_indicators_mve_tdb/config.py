@@ -61,6 +61,7 @@ DATE_COLS = {
     "date_analyse_labo": "date_analyse_labo",
     "date_deces_final": "date_deces_final",
     "date_deces_notification": "date_deces_notification",
+    "date_deces_pci": "date_deces_pci",
     "date_funerailles": "date_funerailles",
     "date_premiere_vaccination": "date_premiere_vaccination",
     "date_heure_investigation": "date_heure_investigation",
@@ -183,6 +184,8 @@ RENAME_MAP = {
     # (modalités observées : Guéri(e), Décédé(e), Non Cas, Retour à la maison,
     # Abandon, Evadé(e), Référé, Transféré(e)).
     "MEV - PEC37 - Statut au moment de la sortie": "modalite_sortie_cte",
+    # Prévention et contrôle des infections (PCI)
+    "MVE - PCI9 - Date de décès": "date_deces_pci",
 }
 
 DICO_DE_MAPPING = {
@@ -261,6 +264,7 @@ DICO_DE_MAPPING = {
     "date_sortie_cte": "Xy5J5MGpaZ7",
     "statut_avant_admission_cte": "AawdHKqaXcj",
     "modalite_sortie_cte": "WKZu0kp6wWu",
+    "date_deces_pci": "fWBGDpJezOX",
 }
 
 # Délais (jours) : nom_cible -> (date_fin, date_debut)

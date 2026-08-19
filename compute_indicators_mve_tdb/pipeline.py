@@ -767,6 +767,7 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
         | (line_list["statut_final_patient"] == "Décédé")
         | (line_list["date_deces_final"].notna())
         | (line_list["statut_patient_prelevement"] == "Décédé")
+        | (line_list["date_deces_pci"].notna())
     )
     line_list["is_deces_confirme"] = line_list["is_deces"] & line_list["is_confirme"]
     line_list["is_deces_suspect"] = line_list["is_deces"] & line_list["is_suspect"]
@@ -802,7 +803,8 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
 def reconstruct_date_deces(df: pd.DataFrame) -> pd.Series:
     """Reconstruit une date de décès unique par cas.
 
-    Priorité : date de décès finale, sinon date notifiée du décès, sinon proxys
+    Priorité aux dates réellement saisies : date de décès finale, sinon date
+    notifiée du décès, sinon date de décès saisie en PCI. À défaut, proxys
     (date de prélèvement si patient décédé au prélèvement, sinon date de
     notification) lorsque le décès est avéré (is_deces).
 
@@ -813,6 +815,9 @@ def reconstruct_date_deces(df: pd.DataFrame) -> pd.Series:
         La série des dates de décès (NaT si non décédé ou date inconnue).
     """
     date_deces = df["date_deces_final"].fillna(df["date_deces_notification"])
+
+    proxy_pci = date_deces.isna() & df["is_deces"] & df["date_deces_pci"].notna()
+    date_deces = date_deces.mask(proxy_pci, df["date_deces_pci"])
 
     proxy_prelev = (
         date_deces.isna()
