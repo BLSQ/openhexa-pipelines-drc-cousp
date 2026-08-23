@@ -520,15 +520,45 @@ COLS_LLN_LABO = [
     "flag_pos_puis_inv",
 ]
 
-DATASET_LLN_COLS = list(
-    dict.fromkeys(
-        [
-            *COLS_LLN_CLES,
-            *COLS_LLN_GEO,
-            *COLS_LLN_TEI,
-            *COLS_LLN_EVENTS,
-            *DATASET_LLN_MAPPING.values(),
-            *COLS_LLN_LABO,
-        ]
-    )
-)
+# Drapeaux is_* et date de décès reconstruite (cf. compute_lln_flags), alignés
+# sur la méthodologie de COD_MVE_Tracker_Individu (compute_indicators /
+# reconstruct_date_deces dans pipeline.py). Ajoutés en fin de schéma : aucun de
+# ces noms ne recouvre une colonne déjà publiée plus haut (LLN_MAPPING, TEI,
+# labo…), donc pas de doublon de nom dans le dataset.
+COLS_LLN_FLAGS = [
+    "is_alerte",
+    "is_alerte_valide",
+    "is_suspect",
+    "is_confirme",
+    "is_preleve",
+    "is_recu",
+    "is_analyse",
+    "is_valide",
+    "is_deces",
+    "is_gueri",
+    "is_deces_confirme",
+    "is_confirme_gueri",
+    "is_confirme_vivant",
+    "date_deces",
+]
+
+_DATASET_LLN_BLOCS = [
+    COLS_LLN_CLES,
+    COLS_LLN_GEO,
+    COLS_LLN_TEI,
+    COLS_LLN_EVENTS,
+    list(DATASET_LLN_MAPPING.values()),
+    COLS_LLN_LABO,
+    COLS_LLN_FLAGS,
+]
+
+# Un même nom de colonne publié par deux blocs romprait silencieusement le
+# schéma (la seconde occurrence écraserait la première) : on l'échoue au
+# chargement du module plutôt que de laisser `dict.fromkeys` dédoublonner en
+# silence.
+_toutes_colonnes = [col for bloc in _DATASET_LLN_BLOCS for col in bloc]
+_doublons = {col for col in _toutes_colonnes if _toutes_colonnes.count(col) > 1}
+if _doublons:
+    raise ValueError(f"DATASET_LLN_COLS : nom(s) de colonne dupliqué(s) entre blocs : {_doublons}")
+
+DATASET_LLN_COLS = list(dict.fromkeys(_toutes_colonnes))

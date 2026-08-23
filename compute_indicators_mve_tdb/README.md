@@ -95,6 +95,30 @@ Conventions du fichier :
   coordonnées GPS du domicile (`gps_domicile`) → partage restreint aux personnes
   habilitées.
 
+### Drapeaux `is_*` et date de décès reconstruite
+
+En fin de schéma (`config.COLS_LLN_FLAGS`), `compute_lln_flags` ajoute les mêmes
+colonnes dérivées que la table `COD_MVE_Tracker_Individu`
+(`compute_indicators`/`reconstruct_date_deces`), calculées à partir de plusieurs
+data elements plutôt que reprises telles quelles :
+
+- **drapeaux booléens** `is_alerte`, `is_alerte_valide`, `is_suspect`,
+  `is_confirme`, `is_preleve`, `is_recu`, `is_analyse`, `is_valide`, `is_deces`,
+  `is_gueri`, `is_deces_confirme`, `is_confirme_gueri`, `is_confirme_vivant`.
+  Ex. `is_confirme` = `lab_confirme` ET `conclusion_alerte == "Validée"` — une
+  définition qui peut diverger de `classification_finale_cas` (DHIS2) ; le
+  pipeline logue un avertissement quand les deux comptages divergent ;
+- **`date_deces`** : reconstruite par cascade de priorité — `date_deces_final`
+  (saisie), sinon `date_deces_notification`, sinon proxy PCI
+  (`date_deces_pci`), sinon proxy prélèvement (`date_prelevement` si décès
+  constaté au prélèvement), sinon proxy `date_notification` — appliquée
+  uniquement quand `is_deces` est vrai. Ce n'est donc pas nécessairement une
+  date saisie telle quelle.
+
+Aucun de ces noms ne recouvre une colonne déjà publiée plus haut dans le
+fichier : un garde-fou dans `config.py` fait échouer le chargement du module si
+un doublon de nom apparaissait un jour entre les blocs du schéma.
+
 ## Configuration
 
 Les nappes (`AXES_EXPORT`, `LLN_TABLE`), la table source (`EVENTS_TABLE`), le
@@ -118,12 +142,13 @@ plusieurs DE, pas ce DE seul). Les ~23 DE propres à la LLN partagée (PEC hors
 CTE, PCI, localisation du cas confirmé…), sans équivalent dans le vocabulaire du
 tableau de bord, gardent leur nom `DATASET_LLN_MAPPING` d'origine.
 
-⚠️ Ce renommage change le schéma du fichier `lln_mve_notifications.parquet` :
-toute pipeline ou notebook d'un autre workspace qui lit ce dataset par nom de
-colonne codé en dur (ex. `temperature`, `ct_ebov`, `resultat_labo` réutilisé
-ailleurs sous l'ancien sens, `sympt_*`, `date_deces` pour ce DE précis…) doit
-être mis à jour. Une nouvelle version du dataset sera publiée au prochain run
-(le hash de contenu change), avec la fenêtre couverte inchangée.
+⚠️ Ce renommage, ainsi que l'ajout des colonnes `is_*`/`date_deces` en fin de
+schéma, change le schéma du fichier `lln_mve_notifications.parquet` : toute
+pipeline ou notebook d'un autre workspace qui lit ce dataset par nom de colonne
+codé en dur (ex. `temperature`, `ct_ebov`, `resultat_labo` réutilisé ailleurs
+sous l'ancien sens, `sympt_*`, `date_deces` pour ce DE précis…) doit être mis à
+jour. Une nouvelle version du dataset sera publiée au prochain run (le hash de
+contenu change), avec la fenêtre couverte inchangée.
 
 ## Exécution
 
