@@ -343,89 +343,102 @@ LLN_COLS = [
 ]
 
 DATASET_LLN_MAPPING = {
+    # Noms alignés sur DICO_DE_MAPPING (vocabulaire de la table TDB) pour les DE
+    # communs aux deux dictionnaires. La table (COD_MVE_Tracker_Individu) n'est
+    # pas touchée : DICO_DE_MAPPING/RENAME_MAP restent inchangés, donc les
+    # tableaux de bord connectés à la table ne sont pas affectés.
+    # Deux exceptions volontaires (le nom de la table pour ce DE n'est pas une
+    # colonne DE→valeur brute mais un champ reconstruit à partir de plusieurs
+    # DE — reprendre ce nom créerait une fausse équivalence) :
+    #   - j6xabrRDJuo : "resultat_labo" déjà identique au nom réellement publié
+    #     dans la table (alias direct de resultat_final_mve, cf. pipeline.py) ;
+    #   - x1aazi4fgKO : gardé sous le nom brut DICO "date_deces_final" plutôt que
+    #     "date_deces", qui dans la table désigne la date reconstruite
+    #     (coalesce date_deces_final / date_deces_notification / date_deces_pci
+    #     / proxys) et n'est donc pas équivalente à ce DE seul.
     # Stage 1 · Notification de l'alerte (njs9IDEFVtC)
     "kdOYmDgoyAA": "nature_alerte",  # MVE-N Nature de l'Alerte
-    "rEMVmX2CvRw": "etat_sante_actuel",  # MVE-N Etat de santé actuel
-    "qdhYjojAAXd": "symptomes",  # MVE-N Symptômes
+    "rEMVmX2CvRw": "etat_sante_notification",  # MVE-N Etat de santé actuel
+    "qdhYjojAAXd": "symptomes_notification",  # MVE-N Symptômes
     "F0gpBf9R11P": "date_heure_investigation",  # MVE-N-Date & Heure d'investigation
     "KhsBtTYkFZd": "conclusion_alerte",  # MVE-N-Conclusion de l'alerte
     "rrFePJwactM": "commission_pec_prevenue",  # MVE-N Commission PEC prévenue
-    "jHaeHsB6JbW": "devenir_cas_suspect",  # MVE - N - Cas suspect
-    "ZBhXK4z0Iax": "date_deces_alerte",  # MVE- N - Date de décès
+    "jHaeHsB6JbW": "classification_initiale",  # MVE - N - Cas suspect
+    "ZBhXK4z0Iax": "date_deces_notification",  # MVE- N - Date de décès
     # Stage 2 · Investigation FHV (fqrtWpCo7za)
-    "mMGawAScUbp": "gps_maison",  # S1 -  Coordonnées GPS de la maison
-    "o7NC9z4JAts": "etat_patient_collecte",  # S1 -  Etat du patient au moment de la collecte d'information
-    "cHbhxbwAZZ3": "etablissement_soins",  # S1 -  Nom de l’établissement de soins  # noqa: RUF003
+    "mMGawAScUbp": "gps_domicile",  # S1 -  Coordonnées GPS de la maison
+    "o7NC9z4JAts": "etat_patient_investigation",  # S1 -  Etat du patient au moment de la collecte d'information
+    "cHbhxbwAZZ3": "etablissement_soins_s1",  # S1 -  Nom de l’établissement de soins  # noqa: RUF003
     "ICpmsUy8ros": "grossesse",  # MVE - S1 -  La malade est-elle enceinte ?
     "t4RcYSXmYgW": "statut_vaccinal_mve",  # S1 -  Statut vaccinal du malade: vacciné contre MVE
-    "dAIplu60XuM": "nb_doses_vaccin_ebola",  # MVE - S1 - Combien de fois le patient a-t-il été vacciné contre d’Ebola ?  # noqa: RUF003
+    "dAIplu60XuM": "nb_doses_vaccin",  # MVE - S1 - Combien de fois le patient a-t-il été vacciné contre d’Ebola ?  # noqa: RUF003
     "j4A3wbzVrWz": "date_premiere_vaccination",  # MVE - S1 - Date de la première vaccination ?
-    "D41GBZFDn5t": "lieu_maladie_village",  # MVE - S1 -  Endroit où le patient est tombé malade : Village/Ville
-    "Fl9ty8UdhnJ": "lieu_maladie_zs",  # MVE - S1 - Endroit où le patient est tombé malade : Zone de Santé
-    # NB : nom volontairement distinct de l'attribut TEI « date_debut_symptomes »
-    # (MVE - DDS) — sans cela les deux colonnes entrent en collision à la jointure.
-    "aRju8gQZBET": "date_debut_symptomes_invest",  # 042 - MVE - S2 - Date de début des signes et symptômes
-    "uW3XFH8TQGE": "sympt_fievre",  # 043 - MVE - S2 - Fièvre
-    "T3jzcNGXCpa": "temperature",  # 044 - MVE - S2 - Si oui, Temp C  (Thermoflash)
-    "xATq2Gnt48G": "sympt_nausees_vomissements",  # 045 - MVE - S2 - Nausées / Vomissements
-    "Pjk2zRsdLEv": "sympt_diarrhee",  # 046 - MVE - S2 - Diarrhées
-    "g2QJ4LWuq1C": "sympt_fatigue",  # 047 - MVE - S2 - Fatigue générale intense
-    "ZwlwHsvxPA3": "sympt_cephalees",  # 053 - MVE - S2 - Céphalées
-    "vwS0SsOqCz9": "sympt_coma",  # 063 - MVE - S2 - Coma / perte de conscience
-    "fjXyHX02I8c": "sympt_confusion",  # 064 - MVE - S2 - Confusion ou désorientation
-    "HrFOPwqKxoV": "sympt_saignements",  # 065 - MVE - S2 - Saignements
-    "pwNocbwvO0o": "sympt_saignement_gencives",  # 067 - MVE - S2 - Saignements des gencives
-    "N50wDaI6H1r": "sympt_epistaxis",  # 069 - MVE - S2 - Saignements du nez (épistaxis)
-    "BYkTKut1D8V": "sympt_melena",  # 070 - MVE - S2 - Selles rouges ou noires (mélénas)
-    "Gutl308P6Pl": "sympt_hematemese",  # 071 - MVE - S2 - Vomissements sanglants (hématémèses)
-    "f0yTueLYdns": "sympt_hematomes_petechies",  # 075 - MVE - S2 - Hématomes / Pétéchies / purpura
-    "MhWvM2jHEvL": "date_hospitalisation",  # 097 - MVE - S3 - HO-4 - Date d’hospitalisation/Date de consultation - Début  # noqa: RUF003
-    "sRCOxZrDZkv": "etablissement_soins_ho1",  # 093 - MVE - S3 - HO-1 - Nom de l’établissement de soins  # noqa: RUF003
-    "y8Yv0WaxsJA": "etablissement_soins_zs",  # 094 - MVE - S3 - HO-1 - Zone de santé
-    "Tzr3SapM9je": "contact_malade_ebola",  # 106 - MVE - S4 - 1. Il y a-t-il eu contacts avec un malade Ebola, connu/suspect, ou simplement avec une personne malade?
-    "fRj81KZWlYh": "type_contact",  # 115 - MVE - S4 - MA-1 - Types de contact
-    "hOqgFC3f94P": "lien_parente_contact",  # 108 - MVE - S4 - MA-1 - Lien de parenté
-    "P8TAPKXAK2E": "contact_corps_funerailles",  # 155 - MVE - S4 - PF-2 - Avez-vous porté ou touché le corps?
-    "PydxMCR9fV6": "contact_animal_viande",  # 177 - MVE - S4 - 6. Le patient a-t-il eu un contact direct (chasse, touché, mangé) avec des animaux ou de la viande crue avant de tomber malade?
-    "fq5cNcnKcy9": "contact_animal_chauvesouris",  # 177 - MVE - S4 - 6.1 Chauve-souris (ou excrétions de)
-    "alu85ZZRCZE": "contact_animal_singe",  # 177 - MVE - S4 - 6.2 Singes
+    "D41GBZFDn5t": "village_maladie",  # MVE - S1 -  Endroit où le patient est tombé malade : Village/Ville
+    "Fl9ty8UdhnJ": "zone_sante_maladie",  # MVE - S1 - Endroit où le patient est tombé malade : Zone de Santé
+    # NB : distinct de l'attribut TEI « date_debut_symptomes » (MVE - DDS) pour
+    # éviter toute collision à la jointure ; nom aligné sur DICO_DE_MAPPING.
+    "aRju8gQZBET": "date_debut_signes_investigation",  # 042 - MVE - S2 - Date de début des signes et symptômes
+    "uW3XFH8TQGE": "signe_fievre",  # 043 - MVE - S2 - Fièvre
+    "T3jzcNGXCpa": "temperature_celsius",  # 044 - MVE - S2 - Si oui, Temp C  (Thermoflash)
+    "xATq2Gnt48G": "signe_nausees_vomissements",  # 045 - MVE - S2 - Nausées / Vomissements
+    "Pjk2zRsdLEv": "signe_diarrhees",  # 046 - MVE - S2 - Diarrhées
+    "g2QJ4LWuq1C": "signe_fatigue",  # 047 - MVE - S2 - Fatigue générale intense
+    "ZwlwHsvxPA3": "signe_cephalees",  # 053 - MVE - S2 - Céphalées
+    "vwS0SsOqCz9": "signe_coma",  # 063 - MVE - S2 - Coma / perte de conscience
+    "fjXyHX02I8c": "signe_confusion",  # 064 - MVE - S2 - Confusion ou désorientation
+    "HrFOPwqKxoV": "signe_saignements",  # 065 - MVE - S2 - Saignements
+    "pwNocbwvO0o": "signe_saignement_gencives",  # 067 - MVE - S2 - Saignements des gencives
+    "N50wDaI6H1r": "signe_epistaxis",  # 069 - MVE - S2 - Saignements du nez (épistaxis)
+    "BYkTKut1D8V": "signe_melenas",  # 070 - MVE - S2 - Selles rouges ou noires (mélénas)
+    "Gutl308P6Pl": "signe_hematemeses",  # 071 - MVE - S2 - Vomissements sanglants (hématémèses)
+    "f0yTueLYdns": "signe_hematomes_petechies",  # 075 - MVE - S2 - Hématomes / Pétéchies / purpura
+    "MhWvM2jHEvL": "date_hospitalisation_ho1",  # 097 - MVE - S3 - HO-4 - Date d’hospitalisation/Date de consultation - Début  # noqa: RUF003
+    "sRCOxZrDZkv": "etablissement_ho1",  # 093 - MVE - S3 - HO-1 - Nom de l’établissement de soins  # noqa: RUF003
+    "y8Yv0WaxsJA": "zone_sante_ho1",  # 094 - MVE - S3 - HO-1 - Zone de santé
+    "Tzr3SapM9je": "contact_cas_ebola_connu",  # 106 - MVE - S4 - 1. Il y a-t-il eu contacts avec un malade Ebola, connu/suspect, ou simplement avec une personne malade?
+    "fRj81KZWlYh": "types_contact",  # 115 - MVE - S4 - MA-1 - Types de contact
+    "hOqgFC3f94P": "lien_parente_cas_index",  # 108 - MVE - S4 - MA-1 - Lien de parenté
+    "P8TAPKXAK2E": "touche_corps_funerailles",  # 155 - MVE - S4 - PF-2 - Avez-vous porté ou touché le corps?
+    "PydxMCR9fV6": "contact_animal",  # 177 - MVE - S4 - 6. Le patient a-t-il eu un contact direct (chasse, touché, mangé) avec des animaux ou de la viande crue avant de tomber malade?
+    "fq5cNcnKcy9": "contact_chauve_souris",  # 177 - MVE - S4 - 6.1 Chauve-souris (ou excrétions de)
+    "alu85ZZRCZE": "contact_singes",  # 177 - MVE - S4 - 6.2 Singes
     # Stage 3 · Prélèvements biologiques (GO2aLxqhDIS)
-    "lj0Zv0vbUN5": "num_prelevement",  # MVE - N° Prélèvement
-    "aC7D1VntfwF": "prelevement_anterieur",  # 182 - MVE - S5 - Est-ce qu’un prélèvement a déjà été soumis pour ce malade?  # noqa: RUF003
+    "lj0Zv0vbUN5": "numero_prelevement",  # MVE - N° Prélèvement
+    "aC7D1VntfwF": "prelevement_soumis",  # 182 - MVE - S5 - Est-ce qu’un prélèvement a déjà été soumis pour ce malade?  # noqa: RUF003
     "hRDXEdSBqNF": "identifiant_labo",  # 182.1 - MVE - S5 - Identifiant Labo
-    "nniQIfMGBDC": "statut_au_prelevement",  # 182.2 - MVE - S5 - Statut du patient lors du prélèvement
+    "nniQIfMGBDC": "statut_patient_prelevement",  # 182.2 - MVE - S5 - Statut du patient lors du prélèvement
     "CxQAC5LkMtn": "date_prelevement",  # 183 - MVE - S5 - Date du prélèvement
     "USnTDONKNN8": "type_prelevement",  # 184 - MVE - S5 - Type de prélèvement
-    "NT3xJOu8JAL": "prelevement_precisez",  # 185 - MVE - S5 - PR - précisez
+    "NT3xJOu8JAL": "type_prelevement_precision",  # 185 - MVE - S5 - PR - précisez
     # Stage 4 · Résultat laboratoire (r7nrCHTBI5P)
     "HBw0c2Cg8GU": "date_reception_labo",  # MVE - LAB - Date de Reception
     "BTMKxJvLTer": "date_analyse_labo",  # MVE - LAB - Date d'analyse
     "rtfha5Df5a8": "machine_labo",  # MVE - LAB - Machine
-    "j6xabrRDJuo": "resultat_labo",  # MVE - LAB - Résultat Final (MVE)
-    "D6kduc7OZnS": "classification_cas",  # MVE - Classification finale du cas
-    "DBdW3r069Yn": "ct_ebov",  # MVE - LAB - Radi One – Ebola — Valeur CT fam (EBOV)  # noqa: RUF003
-    "CBn9FhYHn0Y": "ct_hec_ic",  # MVE - LAB - Radi One – Ebola — Valeur CT HEC (IC)  # noqa: RUF003
-    "mRyo3TkE7jp": "coinfection",  # MVE - LAB - Co-infection ?
-    "q0aEkUpgpNh": "coinfection_type",  # MVE - LAB - Si Co-infection
+    "j6xabrRDJuo": "resultat_labo",  # MVE - LAB - Résultat Final (MVE) — déjà le nom publié dans la table, cf. note plus haut
+    "D6kduc7OZnS": "classification_finale_cas",  # MVE - Classification finale du cas
+    "DBdW3r069Yn": "valeur_ct_ebov",  # MVE - LAB - Radi One – Ebola — Valeur CT fam (EBOV)  # noqa: RUF003
+    "CBn9FhYHn0Y": "valeur_ct_hec",  # MVE - LAB - Radi One – Ebola — Valeur CT HEC (IC)  # noqa: RUF003
+    "mRyo3TkE7jp": "co_infection",  # MVE - LAB - Co-infection ?
+    "q0aEkUpgpNh": "co_infection_type",  # MVE - LAB - Si Co-infection
     "Smg0g56IqWr": "incident_labo",  # MVE - LAB - Incident
     # Stage 5 · Statut final du patient (kOyiPgabAuY)
-    "Za0cx3pmcWW": "statut_final",  # 199 - MVE - S6 - Statut final du patient
-    "jieNzfUp3E8": "signes_hemorragiques",  # 200 - MVE - S6 - Est-ce-que le patient a eu des signes hémorragiques inexpliqués pendant la durée de la maladie?
+    "Za0cx3pmcWW": "statut_final_patient",  # 199 - MVE - S6 - Statut final du patient
+    "jieNzfUp3E8": "signes_hemorragiques_maladie",  # 200 - MVE - S6 - Est-ce-que le patient a eu des signes hémorragiques inexpliqués pendant la durée de la maladie?
     "W2u38gg9Jy8": "date_sortie_isolement",  # 205 - MVE - S6 - Si le malade était en isolement, date de sortie de la zone d’isolement  # noqa: RUF003
     "wIY8Kv2oWec": "date_sortie_hopital",  # 206 - MVE - S6 - Date de sortie de l’hôpital  # noqa: RUF003
-    "x1aazi4fgKO": "date_deces",  # 208 - MVE - S6 - Date de décès
+    "x1aazi4fgKO": "date_deces_final",  # 208 - MVE - S6 - Date de décès — cf. note plus haut (≠ date_deces reconstruite de la table)
     "sHEARVNufMJ": "lieu_deces",  # 209 - MVE - S6 - Lieu du décès
-    "fg5xfl9bD5V": "sortie_guerison_zs",  # 204 - MVE - S6 - SG - Zone de santé
-    "dqmYvLDGfDu": "deces_zs",  # 212 - MVE - S6 - DC - Zone de Santé
+    "fg5xfl9bD5V": "zone_sante_guerison",  # 204 - MVE - S6 - SG - Zone de santé
+    "dqmYvLDGfDu": "zone_sante_deces",  # 212 - MVE - S6 - DC - Zone de Santé
     "eLqoRcK7lq1": "date_funerailles",  # 214 - MVE - S6 - Date des funérailles
     "fpw6gIG7Nhq": "funerailles_organisees_par",  # 215 - MVE - S6 - Funérailles organisées par
     "LE2eGGkAy2F": "lieu_funerailles",  # 216 - MVE - S6 - Lieu des funérailles/enterrement
-    "NympO1c3msQ": "funerailles_zs",  # 218 - MVE - S6 - FE - Zone de Santé
+    "NympO1c3msQ": "zone_sante_funerailles",  # 218 - MVE - S6 - FE - Zone de Santé
     # Stage 6 · Prise en charge (rMvKKqab4bW)
-    "Xy5J5MGpaZ7": "date_sortie_pec",  # MVE - PEC - Date de sortie
-    "KGsTJ4jV7Fb": "date_admission_pec",  # MVE - PEC - Date d’admission  # noqa: RUF003
-    "AawdHKqaXcj": "statut_avant_admission_pec",  # MVE - PEC - Status avant admission
-    "WKZu0kp6wWu": "issue_pec",  # MEV - PEC37 - Statut au moment de la sortie
+    "Xy5J5MGpaZ7": "date_sortie_cte",  # MVE - PEC - Date de sortie
+    "KGsTJ4jV7Fb": "date_admission_cte",  # MVE - PEC - Date d’admission  # noqa: RUF003
+    "AawdHKqaXcj": "statut_avant_admission_cte",  # MVE - PEC - Status avant admission
+    "WKZu0kp6wWu": "modalite_sortie_cte",  # MEV - PEC37 - Statut au moment de la sortie
     "eFA1FPYnvsj": "etablissement_pec_actuel",  # MVE - PEC04 - Nom de l'etablissement de soins (CTE, ESS) : Actuel
     "CJaBDAUQ0kr": "provenance_patient_pec",  # MVE - PEC01 - Provenance du patient
     "wcPpsQhBslQ": "vacinnation_ebola_pec",  # MEV - PEC11.3 - Vaccination ebola

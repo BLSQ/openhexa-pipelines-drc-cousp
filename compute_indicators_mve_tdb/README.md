@@ -92,7 +92,7 @@ Conventions du fichier :
 - **schéma stable** : une colonne mappée mais absente de la source est créée à
   NULL plutôt que supprimée, et l'ordre des colonnes est figé ;
 - **confidentialité** : liste nominative comportant des quasi-identifiants et les
-  coordonnées GPS du domicile (`gps_maison`) → partage restreint aux personnes
+  coordonnées GPS du domicile (`gps_domicile`) → partage restreint aux personnes
   habilitées.
 
 ## Configuration
@@ -104,12 +104,26 @@ mapping des data elements DHIS2 (`DICO_DE_MAPPING`, `RENAME_MAP`, `DICO_TEI`,
 `DATASET_LLN_COLS` pour le dataset) sont centralisés dans `config.py`. Helpers
 géo / âge / dataset dans `utils.py`.
 
-⚠️ Deux mappings de data elements coexistent : `DICO_DE_MAPPING` (vocabulaire
+Deux mappings de data elements coexistent : `DICO_DE_MAPPING` (vocabulaire
 historique du tableau de bord, contrat figé) et `DATASET_LLN_MAPPING` (LLN
-partagée, surensemble des mêmes DE, mais 54 renommés). Les unifier suppose une
-source unique `de_id -> nom canonique` plus une table d'alias conservant les noms
-de colonnes publiés du tableau de bord ; non fait, car cela demande une
-comparaison ligne à ligne avant/après sur `COD_MVE_Tracker_Individu`.
+partagée, surensemble des mêmes DE). Depuis l'alignement des noms, les DE
+communs aux deux dictionnaires portent le **même nom de colonne** dans le
+dataset et dans `COD_MVE_Tracker_Individu`, sans que `DICO_DE_MAPPING`/
+`RENAME_MAP` (donc la table et les tableaux de bord qui s'y connectent) n'aient
+été modifiés. Deux exceptions volontaires, documentées dans `config.py` :
+`resultat_labo` (`j6xabrRDJuo`, déjà identique au nom publié dans la table) et
+`date_deces_final` (`x1aazi4fgKO`, laissé sous le nom brut du DE plutôt que
+`date_deces` — qui dans la table désigne une date reconstruite à partir de
+plusieurs DE, pas ce DE seul). Les ~23 DE propres à la LLN partagée (PEC hors
+CTE, PCI, localisation du cas confirmé…), sans équivalent dans le vocabulaire du
+tableau de bord, gardent leur nom `DATASET_LLN_MAPPING` d'origine.
+
+⚠️ Ce renommage change le schéma du fichier `lln_mve_notifications.parquet` :
+toute pipeline ou notebook d'un autre workspace qui lit ce dataset par nom de
+colonne codé en dur (ex. `temperature`, `ct_ebov`, `resultat_labo` réutilisé
+ailleurs sous l'ancien sens, `sympt_*`, `date_deces` pour ce DE précis…) doit
+être mis à jour. Une nouvelle version du dataset sera publiée au prochain run
+(le hash de contenu change), avec la fenêtre couverte inchangée.
 
 ## Exécution
 
