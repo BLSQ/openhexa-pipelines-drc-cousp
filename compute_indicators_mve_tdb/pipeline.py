@@ -539,8 +539,12 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     compute_indicators()/reconstruct_date_deces() (grain cas, table
     COD_MVE_Tracker_Individu) : des drapeaux booléens combinant plusieurs data
     elements (ex. is_confirme = lab_confirme ET conclusion_alerte == « Validée »
-    — une définition qui peut différer de classification_finale_cas, DHIS2) et
-    une date de décès reconstruite par cascade de priorité (date finale → date
+    — une définition qui peut différer de classification_finale_cas, DHIS2).
+    is_confirme et is_suspect restent mutuellement exclusifs même si
+    lab_confirme (positif un jour, sur tout l'historique labo) diverge de
+    is_resultat_valide (valeur courante de resultat_labo) : is_suspect exclut
+    explicitement is_confirme. Réplique aussi une date de décès reconstruite
+    par cascade de priorité (date finale → date
     notifiée → proxy PCI → proxy prélèvement si décès au prélèvement → proxy
     date de notification). Colonnes ajoutées en fin de schéma
     (config.COLS_LLN_FLAGS) : aucune ne recouvre un nom déjà publié par
@@ -570,9 +574,9 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     # un data element non renseigné comme une absence de correspondance (False).
     # Sans ce garde-fou, un simple None ferait basculer un OU/ET entier à null.
     is_alerte_valide = pl.col("conclusion_alerte").eq("Validée").fill_null(False)
-    is_valide = pl.col("resultat_labo").is_in(["Positif", "Négatif"]).fill_null(False)
-    is_suspect = is_alerte_valide & ~is_valide
+    is_resultat_valide = pl.col("resultat_labo").is_in(["Positif", "Négatif"]).fill_null(False)
     is_confirme = pl.col("lab_confirme").fill_null(False) & is_alerte_valide
+    is_suspect = is_alerte_valide & ~is_resultat_valide & ~is_confirme
     is_deces = (
         pl.col("nature_alerte").eq("Décès").fill_null(False)
         | pl.col("statut_final_patient").eq("Décédé").fill_null(False)
@@ -590,7 +594,7 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
         ),
         pl.col("date_reception_labo").is_not_null().alias("is_recu"),
         pl.col("date_analyse_labo").is_not_null().alias("is_analyse"),
-        is_valide.alias("is_valide"),
+        is_resultat_valide.alias("is_resultat_valide"),
         is_suspect.alias("is_suspect"),
         is_confirme.alias("is_confirme"),
         is_deces.alias("is_deces"),
@@ -886,10 +890,12 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     )
     line_list["is_recu"] = line_list["date_reception_labo"].notna()
     line_list["is_analyse"] = line_list["date_analyse_labo"].notna()
-    line_list["is_valide"] = line_list["resultat_final_mve"].isin(["Positif", "Négatif"])
-    line_list["is_suspect"] = line_list["is_alerte_valide"] & ~line_list["is_valide"]
+    line_list["is_resultat_valide"] = line_list["resultat_final_mve"].isin(["Positif", "Négatif"])
     line_list["is_confirme"] = (line_list["lab_confirme"] == True) & (  # noqa: E712
         line_list["conclusion_alerte"] == "Validée"
+    )
+    line_list["is_suspect"] = (
+        line_list["is_alerte_valide"] & ~line_list["is_resultat_valide"] & ~line_list["is_confirme"]
     )
 
     line_list["is_deces"] = (
@@ -1082,7 +1088,7 @@ def aggregate_indicators(
             n_preleves=("is_preleve", "sum"),
             n_recus=("is_recu", "sum"),
             n_analyses=("is_analyse", "sum"),
-            n_echantillons_valides=("is_valide", "sum"),
+            n_echantillons_valides=("is_resultat_valide", "sum"),
             n_confirmes=("is_confirme", "sum"),
             n_deces=("is_deces", "sum"),
             n_deces_suspects=("is_deces_suspect", "sum"),
