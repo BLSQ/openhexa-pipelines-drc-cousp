@@ -68,8 +68,6 @@ GEO_RENAME = {
 # absente de la LLN avant apply_dataset_schema).
 FLAG_SOURCE_DTYPES: dict[str, pl.DataType] = {
     "conclusion_alerte": pl.String,
-    "resultat_labo": pl.String,
-    "lab_confirme": pl.Boolean,
     "nature_alerte": pl.String,
     "statut_final_patient": pl.String,
     "date_deces_final": pl.Date,
@@ -574,9 +572,10 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     # un data element non renseigné comme une absence de correspondance (False).
     # Sans ce garde-fou, un simple None ferait basculer un OU/ET entier à null.
     is_alerte_valide = pl.col("conclusion_alerte").eq("Validée").fill_null(False)
-    is_resultat_valide = pl.col("resultat_labo").is_in(["Positif", "Négatif"]).fill_null(False)
-    is_confirme = pl.col("lab_confirme").fill_null(False) & is_alerte_valide
-    is_suspect = is_alerte_valide & ~is_resultat_valide & ~is_confirme
+    is_confirme = (pl.col("n_pos").fill_null(0) >= 1) & is_alerte_valide
+    is_non_cas = (pl.col("n_neg").fill_null(0) >= 1) & is_alerte_valide & ~is_confirme
+    is_suspect = is_alerte_valide & ~is_confirme & ~is_non_cas
+    is_resultat_valide = is_confirme | is_non_cas
     is_deces = (
         pl.col("nature_alerte").eq("Décès").fill_null(False)
         | pl.col("statut_final_patient").eq("Décédé").fill_null(False)
@@ -596,6 +595,7 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
         pl.col("date_analyse_labo").is_not_null().alias("is_analyse"),
         is_resultat_valide.alias("is_resultat_valide"),
         is_suspect.alias("is_suspect"),
+        is_non_cas.alias("is_non_cas"),
         is_confirme.alias("is_confirme"),
         is_deces.alias("is_deces"),
         is_gueri.alias("is_gueri"),
@@ -890,13 +890,15 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     )
     line_list["is_recu"] = line_list["date_reception_labo"].notna()
     line_list["is_analyse"] = line_list["date_analyse_labo"].notna()
-    line_list["is_resultat_valide"] = line_list["resultat_final_mve"].isin(["Positif", "Négatif"])
-    line_list["is_confirme"] = (line_list["lab_confirme"] == True) & (  # noqa: E712
-        line_list["conclusion_alerte"] == "Validée"
+    line_list["is_confirme"] = (line_list["n_pos"].fillna(0) >= 1) & line_list["is_alerte_valide"]
+    line_list["is_non_cas"] = (
+        (line_list["n_neg"].fillna(0) >= 1) & line_list["is_alerte_valide"] & ~line_list["is_confirme"]
     )
     line_list["is_suspect"] = (
-        line_list["is_alerte_valide"] & ~line_list["is_resultat_valide"] & ~line_list["is_confirme"]
+        line_list["is_alerte_valide"] & ~line_list["is_confirme"] & ~line_list["is_non_cas"]
     )
+    line_list["is_resultat_valide"] = line_list["is_confirme"] | line_list["is_non_cas"]
+    line_list["n_echantillons_valides"] = line_list["n_pos"].fillna(0) + line_list["n_neg"].fillna(0)
 
     line_list["is_deces"] = (
         (line_list["nature_alerte"] == "Décès")
@@ -922,6 +924,7 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     current_run.log_info(
         f"Indicateurs au grain cas : {len(line_list)} cas, "
         f"{int(line_list['is_confirme'].sum())} confirmés, "
+        f"{int(line_list['is_non_cas'].sum())} non-cas, "
         f"{int(line_list['is_deces_confirme'].sum())} décès confirmés, "
         f"{int(line_list['is_gueri'].sum())} guéris."
     )
@@ -1085,10 +1088,12 @@ def aggregate_indicators(
             n_alertes_valides=("is_alerte_valide", "sum"),
             n_suspects=("is_suspect", "sum"),
             n_suspects_lien_epi=("is_suspect_lien_epi", "sum"),
+            n_non_cas=("is_non_cas", "sum"),
             n_preleves=("is_preleve", "sum"),
             n_recus=("is_recu", "sum"),
             n_analyses=("is_analyse", "sum"),
-            n_echantillons_valides=("is_resultat_valide", "sum"),
+            n_cas_resultat_valide=("is_resultat_valide", "sum"),
+            n_echantillons_valides=("n_echantillons_valides", "sum"),
             n_confirmes=("is_confirme", "sum"),
             n_deces=("is_deces", "sum"),
             n_deces_suspects=("is_deces_suspect", "sum"),

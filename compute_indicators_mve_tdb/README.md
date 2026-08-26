@@ -103,16 +103,19 @@ colonnes dérivées que la table `COD_MVE_Tracker_Individu`
 data elements plutôt que reprises telles quelles :
 
 - **drapeaux booléens** `is_alerte`, `is_alerte_valide`, `is_suspect`,
-  `is_confirme`, `is_preleve`, `is_recu`, `is_analyse`, `is_resultat_valide`,
-  `is_deces`, `is_gueri`, `is_deces_confirme`, `is_confirme_gueri`,
-  `is_confirme_vivant`.
-  Ex. `is_confirme` = `lab_confirme` ET `conclusion_alerte == "Validée"` — une
-  définition qui peut diverger de `classification_finale_cas` (DHIS2) ; le
-  pipeline logue un avertissement quand les deux comptages divergent.
-  `is_suspect` exclut explicitement `is_confirme` (en plus d'exiger
-  `~is_resultat_valide`) pour rester mutuellement exclusif, y compris quand
-  `lab_confirme` (positif un jour, sur tout l'historique labo) diverge de
-  `is_resultat_valide` (valeur courante de `resultat_labo`) ;
+  `is_non_cas`, `is_confirme`, `is_preleve`, `is_recu`, `is_analyse`,
+  `is_resultat_valide`, `is_deces`, `is_gueri`, `is_deces_confirme`,
+  `is_confirme_gueri`, `is_confirme_vivant`.
+  `is_confirme` = `n_pos >= 1` ET alerte validée (`conclusion_alerte ==
+  "Validée"`) — historique cumulé des tests, pas seulement le dernier résultat
+  connu ; une définition qui peut diverger de `classification_finale_cas`
+  (DHIS2), le pipeline loguant un avertissement quand les deux comptages
+  divergent. `is_non_cas` = `n_neg >= 1` ET alerte validée ET NOT `is_confirme`.
+  `is_suspect` = alerte validée ET NOT `is_confirme` ET NOT `is_non_cas` — les
+  trois drapeaux sont mutuellement exclusifs et reposent uniquement sur
+  l'historique cumulé des tests (`n_pos`/`n_neg`, cf. `build_lab_summary`), plus
+  sur le dernier résultat connu. `is_resultat_valide` = `is_confirme` OU
+  `is_non_cas` ;
 - **`date_deces`** : reconstruite par cascade de priorité — `date_deces_final`
   (saisie), sinon `date_deces_notification`, sinon proxy PCI
   (`date_deces_pci`), sinon proxy prélèvement (`date_prelevement` si décès
