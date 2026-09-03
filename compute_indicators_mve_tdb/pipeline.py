@@ -866,7 +866,7 @@ def consolidate_line_list(
     de_absents = [nom for nom in config.DICO_DE_MAPPING if nom not in line_list.columns]
     line_list = line_list.with_columns(pl.lit(None).alias(nom) for nom in de_absents)
 
-    line_list = line_list.select(["tracked_entity_id", *config.RENAME_MAP.values()])
+    line_list = line_list.select(["tracked_entity_id", "enrolled_at", *config.RENAME_MAP.values()])
     line_list = line_list.join(
         lab_summary.join(tei, on="tracked_entity_id", how="left").select(config.COLS_PRELEV),
         on="tracked_entity_id",
