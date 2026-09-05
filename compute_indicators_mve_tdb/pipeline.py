@@ -16,13 +16,17 @@ from adbc_driver_postgresql import dbapi as pgdbapi
 from openhexa.sdk import Dataset, DHIS2Connection, current_run, parameter, pipeline, workspace
 from openhexa.toolbox.dhis2 import DHIS2, dataframe
 from utils import (
+    add_files_to_dataset,
     canoniser_geo_expr,
     compter_oui,
+    files_unchanged_in_version,
     in_dataset_version,
     nom_prochaine_version,
     parse_geo,
     tranche_age,
 )
+
+# Ticket: https://bluesquare.atlassian.net/browse/PATHEOC-419
 
 CaseData = dict[str, object]
 
@@ -126,9 +130,7 @@ def compute_indicators_mve_tdb(
     tracker = DHIS2(dhis_con, Path(workspace.files_path) / ".cache")
 
     borne_max = fenetre_max.isoformat() if fenetre_max else "aucune"
-    current_run.log_info(
-        f"Fenêtre d'analyse sur enrolled_at : {fenetre_min.isoformat()} → {borne_max}."
-    )
+    current_run.log_info(f"Fenêtre d'analyse sur enrolled_at : {fenetre_min.isoformat()} → {borne_max}.")
 
     db_url = workspace.database_url
     org_units = get_organisation_units(tracker)
@@ -229,14 +231,63 @@ def export_tables(
         db_url: URI de connexion à la base du workspace.
     """
     indicators = case_data["indicators"]
-
+    file_paths = []
     for colonne_date, table_name in config.AXES_EXPORT:
         agg = aggregate_indicators(indicators, ou_zone_sante, ou_provinces, colonne_date)  # type: ignore
         export_to_database(agg, table_name, db_url)
+        file_paths.extend(save_data_for_dataset(agg, table_name, Path("/home/jovyan/tmp/mve_tracker_tables")))
         del agg
 
     individu = build_line_list_individu(indicators, ou_zone_sante, ou_provinces)  # type: ignore
     export_to_database(individu, config.LLN_TABLE, db_url)
+    publish_data_to_dataset(
+        file_paths=file_paths,
+        dataset_id=config.MVE_TRACKER_DATASET_ID,
+    )
+
+
+def save_data_for_dataset(df: pd.DataFrame, name: str, output_path: Path) -> list[Path]:
+    """Sérialise la table en parquet et CSV pour publication dans le dataset.
+
+    Returns:
+        Les chemins des fichiers sérialisés (parquet et CSV) pour publication.
+    """
+    if len(df) == 0:
+        current_run.log_warning(f"Table « {name} » vide : aucun fichier exporté.")
+        return []
+
+    output_path.mkdir(parents=True, exist_ok=True)
+    file_paths = []
+    df.to_parquet(output_path / f"{name}.parquet")
+    df.to_csv(output_path / f"{name}.csv", index=False)
+    file_paths.append(output_path / f"{name}.parquet")
+    file_paths.append(output_path / f"{name}.csv")
+    return file_paths
+
+
+def publish_data_to_dataset(file_paths: list[Path], dataset_id: str) -> None:
+    """Publie les tables dans le dataset, sauf si leur contenu est inchangé."""
+    try:
+        dataset = workspace.get_dataset(dataset_id)
+    except Exception as e:
+        current_run.log_warning(f"Error retrieving dataset: {dataset_id}: {e}")
+        dataset = None
+
+    derniere = dataset.latest_version if dataset is not None else None
+    if derniere is not None and files_unchanged_in_version(file_paths, derniere):
+        current_run.log_info(
+            f"Tables inchangées depuis la version « {derniere.name} » du dataset "
+            f"« {dataset_id} » : aucune nouvelle version créée."
+        )
+        for file in file_paths:
+            file.unlink(missing_ok=True)
+        return
+
+    try:
+        add_files_to_dataset(dataset_id=dataset_id, file_paths=file_paths, ds_version_prefix="MVE_TRACKER")
+    finally:
+        for file in file_paths:
+            file.unlink(missing_ok=True)
 
 
 @compute_indicators_mve_tdb.task
@@ -277,19 +328,13 @@ def build_org_units(
         org_units.filter((pl.col("level") == level) & pl.col("geometry").is_not_null())
         .with_columns(
             pl.concat_str(cols_geo, separator=" / ").alias("geo_hierarchie"),
-            pl.col("geometry")
-            .map_elements(_anneau_exterieur, return_dtype=pl.Object)
-            .alias("coordinates"),
+            pl.col("geometry").map_elements(_anneau_exterieur, return_dtype=pl.Object).alias("coordinates"),
         )
         .with_columns(
-            pl.col("coordinates")
-            .map_elements(json.dumps, return_dtype=pl.Utf8)
-            .alias("coordinates")
+            pl.col("coordinates").map_elements(json.dumps, return_dtype=pl.Utf8).alias("coordinates")
         )
     )
-    current_run.log_info(
-        f"Unités d'organisation « {niveau} » préparées : {prepared.height} géométries."
-    )
+    current_run.log_info(f"Unités d'organisation « {niveau} » préparées : {prepared.height} géométries.")
     return prepared
 
 
@@ -428,9 +473,9 @@ def pivot_enrollments(events: pl.DataFrame, org_units: pl.DataFrame) -> pl.DataF
     )
     enrollments = contexte.join(valeurs, on="enrollment_id", how="left")
     enrollments = enrollments.join(
-        org_units.select(
-            ["id", "level_1_name", "level_2_name", "level_3_name", "level_4_name"]
-        ).rename({"id": "enrollment_org_unit"}),
+        org_units.select(["id", "level_1_name", "level_2_name", "level_3_name", "level_4_name"]).rename(
+            {"id": "enrollment_org_unit"}
+        ),
         on="enrollment_org_unit",
         how="left",
     )
@@ -447,11 +492,7 @@ def extract_tei_attributes(
     Returns:
         Les attributs TEI dédoublonnés (dernière occurrence par tracked_entity_id).
     """
-    tei = (
-        events.select(colonnes)
-        .sort("tracked_entity_id")
-        .unique(subset=["tracked_entity_id"], keep="last")
-    )
+    tei = events.select(colonnes).sort("tracked_entity_id").unique(subset=["tracked_entity_id"], keep="last")
     current_run.log_info(f"Attributs TEI extraits : {tei.height} entités suivies.")
     return tei
 
@@ -515,12 +556,8 @@ def build_lab_summary(events: pl.DataFrame) -> pl.DataFrame:
             pl.col("is_neg").sum().alias("n_neg"),
             pl.col("is_inv").sum().alias("n_inv"),
             # Positif puis négatif / invalide (réversion du statut)
-            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Négatif")).alias(
-                "flag_pos_puis_neg"
-            ),
-            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Invalide")).alias(
-                "flag_pos_puis_inv"
-            ),
+            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Négatif")).alias("flag_pos_puis_neg"),
+            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Invalide")).alias("flag_pos_puis_inv"),
         )
     )
     n_confirmes = int(lab_summary.get_column("lab_confirme").sum())
@@ -562,9 +599,7 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
             f"traité(s) comme non renseigné(s) pour les drapeaux is_* "
             f"({', '.join(manquantes)})."
         )
-        lln = lln.with_columns(
-            pl.lit(None, dtype=FLAG_SOURCE_DTYPES[col]).alias(col) for col in manquantes
-        )
+        lln = lln.with_columns(pl.lit(None, dtype=FLAG_SOURCE_DTYPES[col]).alias(col) for col in manquantes)
 
     # fill_null(False) après chaque comparaison : Polars applique la logique de
     # Kleene (une comparaison à une valeur nulle donne « inconnu », pas faux),
@@ -619,9 +654,7 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     )
     date_deces = pl.when(proxy_prelev).then(pl.col("date_prelevement")).otherwise(date_deces)
     proxy_notif = date_deces.is_null() & pl.col("is_deces") & pl.col("date_notification").is_not_null()
-    date_deces = (
-        pl.when(proxy_notif).then(pl.col("date_notification").cast(pl.Date)).otherwise(date_deces)
-    )
+    date_deces = pl.when(proxy_notif).then(pl.col("date_notification").cast(pl.Date)).otherwise(date_deces)
     lln = lln.with_columns(date_deces.alias("date_deces"))
 
     n_confirme = int(lln.get_column("is_confirme").sum())
@@ -686,9 +719,7 @@ def build_line_list(
         how="left",
     )
 
-    cols_texte = [
-        col for col in lln.columns if col.startswith("date_") and lln.schema[col] == pl.String
-    ]
+    cols_texte = [col for col in lln.columns if col.startswith("date_") and lln.schema[col] == pl.String]
     lln = lln.with_columns(
         pl.col(cols_texte).str.strip_chars().str.slice(0, 10).str.to_date("%Y-%m-%d", strict=False)
     ).with_columns(pl.col(["date_confirmation", "date_dernier_test"]).cast(pl.Date, strict=False))
@@ -782,8 +813,7 @@ def build_lln_metadata(
     vides = [col for col, n in non_nuls.items() if n == 0]
     if vides:
         current_run.log_warning(
-            f"LLN : {len(vides)} colonne(s) entièrement vide(s) sur la période "
-            f"({', '.join(vides)})."
+            f"LLN : {len(vides)} colonne(s) entièrement vide(s) sur la période ({', '.join(vides)})."
         )
     return {
         "pipeline": "compute_indicators_mve_tdb",
@@ -829,25 +859,21 @@ def consolidate_line_list(
     )
 
     # Identifiants DHIS2 → noms lisibles (uniquement les colonnes présentes)
-    de_vers_nom = {
-        de_id: nom for nom, de_id in config.DICO_DE_MAPPING.items() if de_id in line_list.columns
-    }
+    de_vers_nom = {de_id: nom for nom, de_id in config.DICO_DE_MAPPING.items() if de_id in line_list.columns}
     line_list = line_list.rename(de_vers_nom)
 
     # Data elements jamais collectés sur la période → colonnes vides
     de_absents = [nom for nom in config.DICO_DE_MAPPING if nom not in line_list.columns]
     line_list = line_list.with_columns(pl.lit(None).alias(nom) for nom in de_absents)
 
-    line_list = line_list.select(["tracked_entity_id", *config.RENAME_MAP.values()])
+    line_list = line_list.select(["tracked_entity_id", "enrolled_at", *config.RENAME_MAP.values()])
     line_list = line_list.join(
         lab_summary.join(tei, on="tracked_entity_id", how="left").select(config.COLS_PRELEV),
         on="tracked_entity_id",
         how="left",
     )
     if de_absents:
-        current_run.log_debug(
-            f"Data elements absents de la période (créés vides) : {len(de_absents)}."
-        )
+        current_run.log_debug(f"Data elements absents de la période (créés vides) : {len(de_absents)}.")
     current_run.log_info(f"Liste de ligne consolidée : {line_list.height} cas.")
     return line_list.drop("tracked_entity_id").to_pandas()
 
@@ -885,9 +911,7 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
 
     line_list["is_alerte"] = True
     line_list["is_alerte_valide"] = line_list["conclusion_alerte"] == "Validée"
-    line_list["is_preleve"] = (
-        line_list["date_prelevement"].notna() | line_list["date_reception_labo"].notna()
-    )
+    line_list["is_preleve"] = line_list["date_prelevement"].notna() | line_list["date_reception_labo"].notna()
     line_list["is_recu"] = line_list["date_reception_labo"].notna()
     line_list["is_analyse"] = line_list["date_analyse_labo"].notna()
     line_list["is_confirme"] = (line_list["n_pos"].fillna(0) >= 1) & line_list["is_alerte_valide"]
@@ -909,9 +933,7 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     )
     line_list["is_deces_confirme"] = line_list["is_deces"] & line_list["is_confirme"]
     line_list["is_deces_suspect"] = line_list["is_deces"] & line_list["is_suspect"]
-    line_list["is_suspect_lien_epi"] = line_list["is_suspect"] & (
-        line_list["lien_epidemiologique"] == "Oui"
-    )
+    line_list["is_suspect_lien_epi"] = line_list["is_suspect"] & (line_list["lien_epidemiologique"] == "Oui")
 
     # Guérison : modalité de sortie du CTE (DE « Statut au moment de la sortie »).
     modalite_sortie = line_list.get("modalite_sortie_cte")
@@ -1231,9 +1253,7 @@ def export_to_database(
         current_run.log_warning(f"Repli SQLAlchemy pour « {table_name} » (écriture dégradée).")
         echec_repli: str | None = None
         try:
-            frame.write_database(
-                table_name, connection=db_url, if_table_exists=mode, engine="sqlalchemy"
-            )
+            frame.write_database(table_name, connection=db_url, if_table_exists=mode, engine="sqlalchemy")
         except Exception as exc:
             echec_repli = f"{type(exc).__module__}.{type(exc).__name__}: {exc}"
 
@@ -1263,9 +1283,9 @@ def verifier_export(frame: pl.DataFrame, table_name: str, db_url: str) -> None:
     projection = ", ".join(
         ["count(*) AS lignes", *[f'count(DISTINCT "{col}") AS "d_{col}"' for col in temoins]]
     )
-    relu = pl.read_database_uri(
-        f'SELECT {projection} FROM "public"."{table_name}"', uri=db_url
-    ).row(0, named=True)
+    relu = pl.read_database_uri(f'SELECT {projection} FROM "public"."{table_name}"', uri=db_url).row(
+        0, named=True
+    )
 
     ecarts = []
     if int(relu["lignes"]) != frame.height:

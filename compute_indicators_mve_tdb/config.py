@@ -10,6 +10,7 @@ AXES_EXPORT: list[tuple[str, str]] = [
     ("date_notif", "COD_MVE_Tracker_Agg"),
     ("date_debut_symptomes", "COD_MVE_Tracker_DDS_Agg"),
     ("date_deces", "COD_MVE_Tracker_Deces"),
+    ("date_rapportage", "COD_MVE_Tracker_Rapportage"),
 ]
 
 # Table de la liste de ligne nominative (grain cas)
@@ -53,6 +54,7 @@ COLS_PRELEV = [
 
 DATE_COLS = {
     # nom_cible                    : source dans raw_df
+    "date_rapportage": "enrolled_at",
     "date_notif": "date_notification",
     "date_debut_symptomes": "date_debut_symptomes",
     "date_debut_signes_invest": "date_debut_signes_investigation",
@@ -564,3 +566,5 @@ if _doublons:
     raise ValueError(f"DATASET_LLN_COLS : nom(s) de colonne dupliqué(s) entre blocs : {_doublons}")
 
 DATASET_LLN_COLS = list(dict.fromkeys(_toutes_colonnes))
+
+MVE_TRACKER_DATASET_ID = "sgi-mve-17"
