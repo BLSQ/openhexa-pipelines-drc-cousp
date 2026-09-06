@@ -637,8 +637,9 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     )
     lln = lln.with_columns(
         (pl.col("is_deces") & pl.col("is_confirme")).alias("is_deces_confirme"),
+        (pl.col("is_deces") & pl.col("is_suspect")).alias("is_deces_suspect"),
         (pl.col("is_confirme") & pl.col("is_gueri")).alias("is_confirme_gueri"),
-        (pl.col("is_confirme") & ~pl.col("is_deces") & ~pl.col("is_gueri")).alias("is_confirme_vivant"),
+        (pl.col("is_confirme") & ~pl.col("is_deces")).alias("is_confirme_vivant"),
     )
 
     # Cascade de priorité : date finale saisie -> date notifiée -> proxy PCI ->
@@ -933,15 +934,19 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     )
     line_list["is_deces_confirme"] = line_list["is_deces"] & line_list["is_confirme"]
     line_list["is_deces_suspect"] = line_list["is_deces"] & line_list["is_suspect"]
-    line_list["is_suspect_lien_epi"] = line_list["is_suspect"] & (line_list["lien_epidemiologique"] == "Oui")
+    # Alertes validées (suspects, non-cas et confirmés confondus) avec lien
+    # épidémiologique connu — le nom du drapeau reste is_suspect_lien_epi
+    # (indicateur historique n_suspects_lien_epi) mais n'est plus restreint aux
+    # seuls cas suspects.
+    line_list["is_suspect_lien_epi"] = line_list["is_alerte_valide"] & (
+        line_list["lien_epidemiologique"] == "Oui"
+    )
 
     # Guérison : modalité de sortie du CTE (DE « Statut au moment de la sortie »).
     modalite_sortie = line_list.get("modalite_sortie_cte")
     line_list["is_gueri"] = modalite_sortie.eq("Guéri(e)") if modalite_sortie is not None else False
     line_list["is_confirme_gueri"] = line_list["is_confirme"] & line_list["is_gueri"]
-    line_list["is_confirme_vivant"] = (
-        line_list["is_confirme"] & ~line_list["is_deces"] & ~line_list["is_gueri"]
-    )
+    line_list["is_confirme_vivant"] = line_list["is_confirme"] & ~line_list["is_deces"]
 
     current_run.log_info(
         f"Indicateurs au grain cas : {len(line_list)} cas, "

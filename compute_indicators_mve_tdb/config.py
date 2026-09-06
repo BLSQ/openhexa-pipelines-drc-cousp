@@ -323,6 +323,7 @@ LLN_COLS = [
     "is_deces",
     "is_gueri",
     "is_deces_confirme",
+    "is_deces_suspect",
     "is_confirme_gueri",
     "is_confirme_vivant",
     # ── Délais (jours, bornés) ───────────────────────────────────────────────
@@ -541,6 +542,7 @@ COLS_LLN_FLAGS = [
     "is_deces",
     "is_gueri",
     "is_deces_confirme",
+    "is_deces_suspect",
     "is_confirme_gueri",
     "is_confirme_vivant",
     "date_deces",

@@ -105,7 +105,7 @@ data elements plutôt que reprises telles quelles :
 - **drapeaux booléens** `is_alerte`, `is_alerte_valide`, `is_suspect`,
   `is_non_cas`, `is_confirme`, `is_preleve`, `is_recu`, `is_analyse`,
   `is_resultat_valide`, `is_deces`, `is_gueri`, `is_deces_confirme`,
-  `is_confirme_gueri`, `is_confirme_vivant`.
+  `is_deces_suspect`, `is_confirme_gueri`, `is_confirme_vivant`.
   `is_confirme` = `n_pos >= 1` ET alerte validée (`conclusion_alerte ==
   "Validée"`) — historique cumulé des tests, pas seulement le dernier résultat
   connu ; une définition qui peut diverger de `classification_finale_cas`
@@ -115,7 +115,9 @@ data elements plutôt que reprises telles quelles :
   trois drapeaux sont mutuellement exclusifs et reposent uniquement sur
   l'historique cumulé des tests (`n_pos`/`n_neg`, cf. `build_lab_summary`), plus
   sur le dernier résultat connu. `is_resultat_valide` = `is_confirme` OU
-  `is_non_cas` ;
+  `is_non_cas`. `is_deces_suspect` = `is_deces` ET `is_suspect`.
+  `is_confirme_vivant` = `is_confirme` ET NOT `is_deces` (un cas confirmé et
+  guéri compte donc aussi comme vivant) ;
 - **`date_deces`** : reconstruite par cascade de priorité — `date_deces_final`
   (saisie), sinon `date_deces_notification`, sinon proxy PCI
   (`date_deces_pci`), sinon proxy prélèvement (`date_prelevement` si décès
