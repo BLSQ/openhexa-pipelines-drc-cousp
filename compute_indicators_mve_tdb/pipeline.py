@@ -852,7 +852,8 @@ def consolidate_line_list(
     Returns:
         La liste de ligne consolidée (pandas), entrée du calcul d'indicateurs.
     """
-    line_list = enrollments.join(tei, on="tracked_entity_id", how="left").with_columns(
+    line_list = enrollments.join(tei, on="tracked_entity_id", how="left")
+    line_list = line_list.with_columns(
         pl.concat_str(
             ["level_1_name", "level_2_name", "level_3_name", "level_4_name"],
             separator=" / ",
@@ -867,7 +868,7 @@ def consolidate_line_list(
     de_absents = [nom for nom in config.DICO_DE_MAPPING if nom not in line_list.columns]
     line_list = line_list.with_columns(pl.lit(None).alias(nom) for nom in de_absents)
 
-    line_list = line_list.select(["tracked_entity_id", "enrolled_at", *config.RENAME_MAP.values()])
+    line_list = line_list.select(["tracked_entity_id", *config.RENAME_MAP.values()])
     line_list = line_list.join(
         lab_summary.join(tei, on="tracked_entity_id", how="left").select(config.COLS_PRELEV),
         on="tracked_entity_id",
@@ -1072,6 +1073,100 @@ def build_line_list_individu(
     return line_list.reindex(columns=config.LLN_COLS)
 
 
+_AGG_FUNCS: dict[str, object] = {"sum": "sum", "nunique": "nunique", "compter_oui": compter_oui}
+
+INDICATEURS_AGG_SPEC: dict[str, tuple[str, object]] = {
+    nom: (col, _AGG_FUNCS[fn]) for nom, (col, fn) in config.INDICATEURS_AGG_SPEC.items()
+}
+
+
+def aggregate_rapportage(
+    indicators: pd.DataFrame,
+    ou_zone_sante: pl.DataFrame,
+    ou_provinces: pl.DataFrame,
+) -> pd.DataFrame:
+    """Agrège les indicateurs pour l'axe « date_rapportage », une date par indicateur.
+
+    Contrairement aux 3 autres axes (une seule colonne de date partagée par
+    tous les indicateurs), chaque indicateur est ici rattaché à la date de
+    l'événement qui le détermine (config.RAPPORTAGE_DATE_SOURCE) : ex.
+    date_confirmation pour n_confirmes, date_deces (reconstruite) pour
+    n_deces, date_sortie_cte pour n_gueri. Les indicateurs partageant la même
+    date source sont agrégés ensemble en une seule passe, puis les résultats
+    par date source sont fusionnés (jointure externe) sur (date_rapportage,
+    zone_sante, province, sexe_norm, tranche_age, geo_hierarchie), les
+    valeurs manquantes étant complétées à 0. Rattache enfin les coordonnées
+    ZS et province, comme aggregate_indicators().
+
+    Args:
+        indicators: Liste de ligne enrichie issue de compute_indicators().
+        ou_zone_sante: Unités d'organisation zone de santé (coordonnées).
+        ou_provinces: Unités d'organisation province (coordonnées).
+
+    Returns:
+        Les agrégats, une ligne par (date_rapportage, ZS, province, sexe,
+        tranche d'âge).
+    """
+    df = indicators.copy()
+    for col in (
+        "date_notif",
+        "date_heure_investigation",
+        "date_prelevement",
+        "date_reception_labo",
+        "date_analyse_labo",
+        "date_dernier_test",
+        "date_confirmation",
+        "date_sortie_cte",
+        "date_debut_signes_invest",
+    ):
+        df[col] = pd.to_datetime(df[col], errors="coerce").dt.normalize()
+    df["date_preleves_calc"] = df["date_prelevement"].fillna(df["date_reception_labo"])
+    df["date_deces"] = pd.to_datetime(reconstruct_date_deces(df), errors="coerce").dt.normalize()
+
+    dims = ["zone_sante", "province", "sexe_norm", "tranche_age", "geo_hierarchie"]
+
+    par_date: dict[str, dict[str, tuple[str, object]]] = {}
+    for indicateur, date_col in config.RAPPORTAGE_DATE_SOURCE.items():
+        par_date.setdefault(date_col, {})[indicateur] = INDICATEURS_AGG_SPEC[indicateur]
+
+    merged: pd.DataFrame | None = None
+    for date_col, agg_spec in par_date.items():
+        sub = df[df["is_deces"]] if date_col == "date_deces" else df
+        sub = sub[sub[date_col].notna()]
+        grouped = (
+            sub.groupby([date_col, *dims], dropna=False)
+            .agg(**agg_spec)
+            .reset_index()
+            .rename(columns={date_col: "date_rapportage"})
+        )
+        merged = (
+            grouped if merged is None else merged.merge(grouped, on=["date_rapportage", *dims], how="outer")
+        )
+
+    valeurs = [c for c in merged.columns if c not in ("date_rapportage", *dims)]
+    merged[valeurs] = merged[valeurs].fillna(0).astype(int)
+    merged = merged.sort_values(["date_rapportage", "province", "zone_sante"]).reset_index(drop=True)
+
+    merged = merged.merge(
+        ou_zone_sante.select(["geo_hierarchie", "coordinates"])
+        .rename({"coordinates": "coordinates_zs"})
+        .to_pandas(),
+        on="geo_hierarchie",
+        how="left",
+    )
+    merged["geo_hierarchie"] = merged["geo_hierarchie"].apply(lambda col: " / ".join(col.split(" / ")[:2]))
+    merged = merged.merge(
+        ou_provinces.select(["geo_hierarchie", "coordinates"])
+        .rename({"coordinates": "coordinates_province"})
+        .to_pandas(),
+        on="geo_hierarchie",
+        how="left",
+    ).drop(columns="geo_hierarchie")
+
+    current_run.log_info(f"Agrégation sur « date_rapportage » : {len(merged)} lignes.")
+    return merged
+
+
 def aggregate_indicators(
     indicators: pd.DataFrame,
     ou_zone_sante: pl.DataFrame,
@@ -1094,6 +1189,9 @@ def aggregate_indicators(
     Returns:
         Les agrégats, une ligne par (date, ZS, province, sexe, tranche d'âge).
     """
+    if colonne_date == "date_rapportage":
+        return aggregate_rapportage(indicators, ou_zone_sante, ou_provinces)
+
     if colonne_date == "date_deces":
         indicators = indicators.copy()
         indicators["date_deces"] = reconstruct_date_deces(indicators)
@@ -1110,40 +1208,7 @@ def aggregate_indicators(
 
     aggregated = (
         indicators.groupby(group_keys, dropna=False)
-        .agg(
-            n_alertes=("numero_epid", "nunique"),
-            n_alertes_valides=("is_alerte_valide", "sum"),
-            n_suspects=("is_suspect", "sum"),
-            n_suspects_lien_epi=("is_suspect_lien_epi", "sum"),
-            n_non_cas=("is_non_cas", "sum"),
-            n_preleves=("is_preleve", "sum"),
-            n_recus=("is_recu", "sum"),
-            n_analyses=("is_analyse", "sum"),
-            n_cas_resultat_valide=("is_resultat_valide", "sum"),
-            n_echantillons_valides=("n_echantillons_valides", "sum"),
-            n_confirmes=("is_confirme", "sum"),
-            n_deces=("is_deces", "sum"),
-            n_deces_suspects=("is_deces_suspect", "sum"),
-            n_deces_confirmes=("is_deces_confirme", "sum"),
-            n_gueri=("is_gueri", "sum"),
-            # n_confirmes_deces == n_deces_confirmes (même drapeau, conservé pour le TDB)
-            n_confirmes_deces=("is_deces_confirme", "sum"),
-            n_confirmes_gueri=("is_confirme_gueri", "sum"),
-            n_confirmes_vivants=("is_confirme_vivant", "sum"),
-            # ── Signes cliniques ────────────────────────────────────────────────
-            n_signe_fievre=("signe_fievre", compter_oui),
-            n_signe_vomissements=("signe_nausees_vomissements", compter_oui),
-            n_signe_diarrhees=("signe_diarrhees", compter_oui),
-            n_signe_fatigue=("signe_fatigue", compter_oui),
-            n_signe_cephalees=("signe_cephalees", compter_oui),
-            n_signe_coma=("signe_coma", compter_oui),
-            n_signe_confusion=("signe_confusion", compter_oui),
-            n_signe_saignements=("signe_saignements", compter_oui),
-            n_signe_saignement_gencives=("signe_saignement_gencives", compter_oui),
-            n_signe_epistaxis=("signe_epistaxis", compter_oui),
-            n_signe_melenas=("signe_melenas", compter_oui),
-            n_signe_hemorragique=("signes_hemorragiques_maladie", compter_oui),
-        )
+        .agg(**INDICATEURS_AGG_SPEC)
         .reset_index()
         .sort_values([colonne_date, "province", "zone_sante"])
         .reset_index(drop=True)
