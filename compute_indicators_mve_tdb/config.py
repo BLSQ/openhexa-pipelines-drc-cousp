@@ -13,6 +13,70 @@ AXES_EXPORT: list[tuple[str, str]] = [
     ("date_rapportage", "COD_MVE_Tracker_Rapportage"),
 ]
 
+INDICATEURS_AGG_SPEC: dict[str, tuple[str, str]] = {
+    "n_alertes": ("numero_epid", "nunique"),
+    "n_alertes_valides": ("is_alerte_valide", "sum"),
+    "n_suspects": ("is_suspect", "sum"),
+    "n_suspects_lien_epi": ("is_suspect_lien_epi", "sum"),
+    "n_non_cas": ("is_non_cas", "sum"),
+    "n_preleves": ("is_preleve", "sum"),
+    "n_recus": ("is_recu", "sum"),
+    "n_analyses": ("is_analyse", "sum"),
+    "n_cas_resultat_valide": ("is_resultat_valide", "sum"),
+    "n_echantillons_valides": ("n_echantillons_valides", "sum"),
+    "n_confirmes": ("is_confirme", "sum"),
+    "n_deces": ("is_deces", "sum"),
+    "n_deces_suspects": ("is_deces_suspect", "sum"),
+    "n_deces_confirmes": ("is_deces_confirme", "sum"),
+    "n_gueri": ("is_gueri", "sum"),
+    "n_confirmes_deces": ("is_deces_confirme", "sum"),
+    "n_confirmes_gueri": ("is_confirme_gueri", "sum"),
+    "n_confirmes_vivants": ("is_confirme_vivant", "sum"),
+    "n_signe_fievre": ("signe_fievre", "compter_oui"),
+    "n_signe_vomissements": ("signe_nausees_vomissements", "compter_oui"),
+    "n_signe_diarrhees": ("signe_diarrhees", "compter_oui"),
+    "n_signe_fatigue": ("signe_fatigue", "compter_oui"),
+    "n_signe_cephalees": ("signe_cephalees", "compter_oui"),
+    "n_signe_coma": ("signe_coma", "compter_oui"),
+    "n_signe_confusion": ("signe_confusion", "compter_oui"),
+    "n_signe_saignements": ("signe_saignements", "compter_oui"),
+    "n_signe_saignement_gencives": ("signe_saignement_gencives", "compter_oui"),
+    "n_signe_epistaxis": ("signe_epistaxis", "compter_oui"),
+    "n_signe_melenas": ("signe_melenas", "compter_oui"),
+    "n_signe_hemorragique": ("signes_hemorragiques_maladie", "compter_oui"),
+}
+
+RAPPORTAGE_DATE_SOURCE: dict[str, str] = {
+    "n_alertes": "date_notif",
+    "n_alertes_valides": "date_heure_investigation",
+    "n_suspects": "date_heure_investigation",
+    "n_suspects_lien_epi": "date_heure_investigation",
+    "n_preleves": "date_preleves_calc",
+    "n_recus": "date_reception_labo",
+    "n_analyses": "date_analyse_labo",
+    "n_echantillons_valides": "date_dernier_test",
+    "n_confirmes": "date_confirmation",
+    "n_confirmes_vivants": "date_confirmation",
+    "n_deces": "date_deces",
+    "n_deces_suspects": "date_deces",
+    "n_deces_confirmes": "date_deces",
+    "n_confirmes_deces": "date_deces",
+    "n_gueri": "date_sortie_cte",
+    "n_confirmes_gueri": "date_sortie_cte",
+    "n_signe_fievre": "date_debut_signes_invest",
+    "n_signe_vomissements": "date_debut_signes_invest",
+    "n_signe_diarrhees": "date_debut_signes_invest",
+    "n_signe_fatigue": "date_debut_signes_invest",
+    "n_signe_cephalees": "date_debut_signes_invest",
+    "n_signe_coma": "date_debut_signes_invest",
+    "n_signe_confusion": "date_debut_signes_invest",
+    "n_signe_saignements": "date_debut_signes_invest",
+    "n_signe_saignement_gencives": "date_debut_signes_invest",
+    "n_signe_epistaxis": "date_debut_signes_invest",
+    "n_signe_melenas": "date_debut_signes_invest",
+    "n_signe_hemorragique": "date_debut_signes_invest",
+}
+
 # Table de la liste de ligne nominative (grain cas)
 LLN_TABLE = "COD_MVE_Tracker_Individu"
 
@@ -54,7 +118,6 @@ COLS_PRELEV = [
 
 DATE_COLS = {
     # nom_cible                    : source dans raw_df
-    "date_rapportage": "enrolled_at",
     "date_notif": "date_notification",
     "date_debut_symptomes": "date_debut_symptomes",
     "date_debut_signes_invest": "date_debut_signes_investigation",
