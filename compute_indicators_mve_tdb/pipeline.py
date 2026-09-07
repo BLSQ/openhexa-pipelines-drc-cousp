@@ -79,6 +79,7 @@ FLAG_SOURCE_DTYPES: dict[str, pl.DataType] = {
     "date_deces_pci": pl.Date,
     "modalite_sortie_cte": pl.String,
     "date_prelevement": pl.Date,
+    "numero_prelevement": pl.String,
     "date_reception_labo": pl.Date,
     "date_analyse_labo": pl.Date,
     "date_notification": pl.Datetime,
@@ -623,9 +624,11 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     lln = lln.with_columns(
         pl.lit(True).alias("is_alerte"),
         is_alerte_valide.alias("is_alerte_valide"),
-        (pl.col("date_prelevement").is_not_null() | pl.col("date_reception_labo").is_not_null()).alias(
-            "is_preleve"
-        ),
+        (
+            pl.col("date_prelevement").is_not_null()
+            | pl.col("numero_prelevement").is_not_null()
+            | pl.col("date_reception_labo").is_not_null()
+        ).alias("is_preleve"),
         pl.col("date_reception_labo").is_not_null().alias("is_recu"),
         pl.col("date_analyse_labo").is_not_null().alias("is_analyse"),
         is_resultat_valide.alias("is_resultat_valide"),
@@ -913,7 +916,11 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
 
     line_list["is_alerte"] = True
     line_list["is_alerte_valide"] = line_list["conclusion_alerte"] == "Validée"
-    line_list["is_preleve"] = line_list["date_prelevement"].notna() | line_list["date_reception_labo"].notna()
+    line_list["is_preleve"] = (
+        line_list["date_prelevement"].notna()
+        | line_list["numero_prelevement"].notna()
+        | line_list["date_reception_labo"].notna()
+    )
     line_list["is_recu"] = line_list["date_reception_labo"].notna()
     line_list["is_analyse"] = line_list["date_analyse_labo"].notna()
     line_list["is_confirme"] = (line_list["n_pos"].fillna(0) >= 1) & line_list["is_alerte_valide"]
