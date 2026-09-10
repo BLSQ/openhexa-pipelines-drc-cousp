@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 import config
-from data.loader import filter_provinces, load_dataset
+from data.loader import date_anomalies, filter_provinces, load_dataset
 from data.metrics import compute
 from data.model import SitRepData
 from reporting import charts, render, zone_map
@@ -67,7 +67,16 @@ def build_sitrep(
         indicateurs calculés.
     """
     logger(f"Chargement du dataset « {config.DATASET_SLUG} » (workspace « {config.DATASET_SOURCE_WORKSPACE} »)…")
-    rapportage, dds_agg = load_dataset()
+    rapportage, dds_agg, derniere_extraction = load_dataset()
+
+    dds_anomalies = date_anomalies(dds_agg, "date_debut_symptomes")
+    if dds_anomalies:
+        logger(
+            f"AVERTISSEMENT : {dds_anomalies['count']} ligne(s) de date_debut_symptomes hors "
+            f"plage plausible ({dds_anomalies['lo']} – {dds_anomalies['hi']}), ex. "
+            f"{', '.join(dds_anomalies['examples'])} — exclue(s) de [[COURBE_EPI]] (cf. "
+            "data/metrics.py::compute)."
+        )
 
     scope_label, slug = _province_scope(provinces)
     if scope_label:
@@ -97,14 +106,21 @@ def build_sitrep(
     if not template_path.exists():
         raise FileNotFoundError(f"Template introuvable : {template_path}")
 
-    assets = Path(assets_dir) if assets_dir else Path(tempfile.mkdtemp(prefix="sitrep_v2_"))
-    logger("Génération des visuels (courbe épi, pyramide, carte)…")
-    chart_paths = charts.build_all(data, assets)
-    chart_paths["zone_situation_map"] = zone_map.zone_situation_maps(data, assets)
-    if chart_paths.get("zone_situation_map") is None:
-        logger("AVERTISSEMENT : shapefile indisponible, carte omise.")
-
     narrative = load_narrative(narrative_path)
+
+    assets = Path(assets_dir) if assets_dir else Path(tempfile.mkdtemp(prefix="sitrep_v2_"))
+    logger("Génération des visuels (courbe épi, pyramide, cartes)…")
+    chart_paths = charts.build_all(
+        data,
+        assets,
+        premier_resultat_positif_labo=narrative.get("premier_resultat_positif_labo"),
+        derniere_extraction=derniere_extraction,
+    )
+    chart_paths["zone_situation_map_cumul"] = zone_map.zone_situation_map_cumul(data, assets)
+    chart_paths["zone_situation_map_jour"] = zone_map.zone_situation_map_jour(data, assets)
+    if chart_paths.get("zone_situation_map_cumul") is None or chart_paths.get("zone_situation_map_jour") is None:
+        logger("AVERTISSEMENT : shapefile indisponible, carte(s) omise(s).")
+
     output_path = Path(output_path) if output_path else _default_output(data.reporting_end, slug)
     logger(f"Rendu du document : {output_path}")
     render.render(data, chart_paths, template_path, output_path, narrative)

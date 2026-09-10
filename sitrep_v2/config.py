@@ -28,7 +28,7 @@ def _resolve_layout() -> tuple[Path, Path, Path, str]:
         root,
         root / "pipelines/sitrep/generated_files",
         root / "pipelines/sitrep/geometry",
-        "Template_SitRep_MVE_nouveau.docx",
+        "Template_SitRep_MVE_nouveau_v2.docx",
     )
 
 
@@ -40,7 +40,8 @@ def _files_path_available() -> bool:
 
 (REPO_ROOT, DATA_DIR, _GEOM_DIR, _TEMPLATE_NAME) = _resolve_layout()
 
-DEFAULT_TEMPLATE = REPO_ROOT / "pipelines/sitrep/template" / _TEMPLATE_NAME
+TEMPLATE_DIR = REPO_ROOT / "pipelines/sitrep/template"
+DEFAULT_TEMPLATE = TEMPLATE_DIR / _TEMPLATE_NAME
 
 DEFAULT_SHAPEFILE = _GEOM_DIR / "zone_sante.parquet"
 DEFAULT_SHAPEFILE_FALLBACK = _GEOM_DIR / "zone_sante.geojson"
@@ -123,5 +124,5 @@ DATE_PLAUSIBLE_MAX = _date(2026, 12, 31)
 
 REPORTING_PERIOD_DAYS = 1
 
-ACCENT_RED = "C00000"
-ACCENT_DARK_BLUE = "1F4E79"
+ACCENT_RED = "EE0000"
+ACCENT_DARK_BLUE = "002060"

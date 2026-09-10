@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+from datetime import date, datetime
 from pathlib import Path
 
 import config
@@ -73,7 +74,23 @@ def _clean_geo(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
-def load_dataset() -> tuple[pl.DataFrame, pl.DataFrame]:
+def _latest_extraction_date(dataset: Dataset) -> date | None:
+    """Date de la dernière version publiée du dataset source.
+
+    Returns:
+        date | None: La date, ou ``None`` si indisponible.
+    """
+    version = dataset.latest_version
+    created_at = getattr(version, "created_at", None) if version else None
+    if not created_at:
+        return None
+    try:
+        return datetime.fromisoformat(str(created_at).replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+
+
+def load_dataset() -> tuple[pl.DataFrame, pl.DataFrame, date | None]:
     """Charge les 2 tables déjà agrégées du dataset source.
 
     Contrairement à v1 (``data/loader.py::load_from_db``), pas de renommage à
@@ -82,14 +99,15 @@ def load_dataset() -> tuple[pl.DataFrame, pl.DataFrame]:
     ``_clean_geo``).
 
     Returns:
-        tuple[pl.DataFrame, pl.DataFrame]: ``(rapportage, dds_agg)``.
+        tuple[pl.DataFrame, pl.DataFrame, date | None]: ``(rapportage,
+        dds_agg, derniere_extraction)``.
     """
     dataset = _get_source_dataset()
     rapportage_path = _download_dataset_file(dataset, config.RAPPORTAGE_FILE)
     dds_agg_path = _download_dataset_file(dataset, config.DDS_AGG_FILE)
     rapportage = _clean_geo(pl.read_parquet(rapportage_path))
     dds_agg = _clean_geo(pl.read_parquet(dds_agg_path))
-    return rapportage, dds_agg
+    return rapportage, dds_agg, _latest_extraction_date(dataset)
 
 
 def filter_provinces(df: pl.DataFrame, provinces: list[str] | None) -> pl.DataFrame:

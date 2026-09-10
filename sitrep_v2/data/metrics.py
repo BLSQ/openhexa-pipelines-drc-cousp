@@ -7,8 +7,6 @@ import polars as pl
 from data.model import SitRepData
 from utils.dates import period_label
 
-EPI_CURVE_WINDOW_DAYS = 21
-
 
 def _order_provinces(provinces: list[str]) -> list[str]:
     """Provinces épidémiques historiques en tête, le reste par ordre alphabétique.
@@ -225,12 +223,23 @@ def compute(
             }
         )
         tableau2.extend(zones)
+    _zones_only = [r for r in tableau2 if not r["is_province"]]
     tableau2_total = {
         "confirmes": tot_conf,
         "deces": tot_dec,
         "cfr": _cfr(tot_dec, tot_conf),
         "nouveaux": sum(r["nouveaux"] for r in tableau1),
-        "deces_total_jour": sum(r["deces_total_jour"] for r in tableau2 if not r["is_province"]),
+        "deces_communautaires": (
+            sum(z["deces_communautaires"] for z in _zones_only if isinstance(z["deces_communautaires"], int))
+            if any(isinstance(z["deces_communautaires"], int) for z in _zones_only)
+            else config.ND
+        ),
+        "deces_intra_cte": (
+            sum(z["deces_intra_cte"] for z in _zones_only if isinstance(z["deces_intra_cte"], int))
+            if any(isinstance(z["deces_intra_cte"], int) for z in _zones_only)
+            else config.ND
+        ),
+        "deces_total_jour": sum(r["deces_total_jour"] for r in _zones_only),
     }
 
     # --- Laboratoire par province (jour) — [[ACTIONS_LABORATOIRE]] ----------
@@ -320,16 +329,19 @@ def compute(
 
     # --- Courbe épidémique (DDS_Agg, par date de début des symptômes) -------
     onset = "date_debut_symptomes"
-    window_start = reporting_end - timedelta(days=EPI_CURVE_WINDOW_DAYS - 1)
-    ec_cum = dds_agg.filter(pl.col(onset).is_not_null() & (pl.col(onset) <= reporting_end))
-    ec_window = ec_cum.filter(pl.col(onset) >= window_start)
+    ec_cum = dds_agg.filter(
+        pl.col(onset).is_not_null()
+        & (pl.col(onset) <= reporting_end)
+        & (pl.col(onset) >= config.DATE_PLAUSIBLE_MIN)
+    )
     ec = (
-        ec_window.group_by(onset)
+        ec_cum.group_by(onset)
         .agg(
             pl.col("n_confirmes_vivants").sum().alias("vivants"),
             pl.col("n_confirmes_deces").sum().alias("deces"),
         )
         .sort(onset)
+        .with_columns(pl.col(onset).cast(pl.Date))
     )
     epi_curve = [(r[onset], int(r["vivants"]), int(r["deces"])) for r in ec.to_dicts()]
 

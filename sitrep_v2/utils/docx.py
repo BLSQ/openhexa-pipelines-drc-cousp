@@ -320,7 +320,7 @@ def table(
                 cell,
                 r[j],
                 bold=is_total,
-                align=CENTER if j else None,
+                align=CENTER if (j or is_total) else None,
                 color=total_font_color if is_total else None,
             )
             if is_total:
@@ -414,13 +414,11 @@ def province_zone_table(
         is_total = str(r.get("label", "")).strip().lower() == "total"
         set_cell(cells[0], r["label"], bold=is_province or is_total)
         if is_province or is_total:
-            set_cell_shading(cells[0], province_fill if is_province else HEADER_FILL)
+            set_cell_shading(cells[0], province_fill)
         for j, val in enumerate(r["values"], start=1):
             set_cell(cells[j], val, bold=is_province or is_total, align=CENTER)
-            if is_province:
+            if is_province or is_total:
                 set_cell_shading(cells[j], province_fill)
-            elif is_total:
-                set_cell_shading(cells[j], HEADER_FILL)
 
     if len(t.rows) > 2:
         for cell in t.rows[-1].cells:

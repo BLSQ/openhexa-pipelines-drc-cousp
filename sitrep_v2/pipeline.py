@@ -52,6 +52,16 @@ from openhexa.sdk import (
     required=False,
 )
 @parameter(
+    "template_file",
+    type=str,
+    name="Nom du fichier template (.docx)",
+    help=(
+        "Nom du fichier dans pipelines/sitrep/template/ du workspace. "
+        "Vide = valeur par défaut (config.DEFAULT_TEMPLATE)."
+    ),
+    required=False,
+)
+@parameter(
     "dst_file",
     type=str,
     name="Fichier de sortie (.docx)",
@@ -69,6 +79,7 @@ def sitrep_v2(
     reporting_end: str | None = None,
     period_days: int = config.REPORTING_PERIOD_DAYS,
     province: list[str] | None = None,
+    template_file: str | None = None,
     dst_file: str | None = None,
     dst_dataset: Dataset | None = None,
 ) -> None:
@@ -78,9 +89,17 @@ def sitrep_v2(
     if province:
         current_run.log_info(f"Portée demandée : {', '.join(province)}")
 
+    template_path = (
+        Path(workspace.files_path) / "pipelines/sitrep/template" / template_file
+        if template_file
+        else config.DEFAULT_TEMPLATE
+    )
+    if template_file:
+        current_run.log_info(f"Template : {template_file} (paramètre)")
+
     output_path = Path(dst_file) if dst_file else None
     out, data = build_sitrep(
-        template_path=config.DEFAULT_TEMPLATE,
+        template_path=template_path,
         output_path=output_path,
         reporting_end=rep_end,
         period_days=period_days,

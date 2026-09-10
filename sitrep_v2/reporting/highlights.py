@@ -496,6 +496,6 @@ def build_actions_laboratoire(data: SitRepData) -> list[str]:
         for r in data.labo_par_province
     ]
     if data.provinces_sans_labo:
-        liste = _enumerate_fr([_province_a_article(p) for p in data.provinces_sans_labo])
-        bullets.append(f"Aucune analyse de laboratoire n'a été réalisée sur la période {liste}.")
+        liste = _enumerate_fr(data.provinces_sans_labo)
+        bullets.append(f"**{liste}** : aucune analyse de laboratoire n'a été réalisée sur la période.")
     return bullets

@@ -95,7 +95,7 @@ def _draw_zone_panel(
     context.plot(ax=ax_map, color="#F4F4F4", edgecolor="#C8C8C8", linewidth=0.4)
     for cls in sorted(hot["cls"].unique()):
         sub = hot[hot["cls"] == cls]
-        sub.plot(ax=ax_map, color=_CLASS_COLORS[cls], edgecolor="#7B241C", linewidth=0.6, hatch="///")
+        sub.plot(ax=ax_map, color=_CLASS_COLORS[cls], edgecolor="#7B241C", linewidth=0.6)
 
     # Délimitation des provinces (contours + nom), limitée aux provinces du
     # contexte, pour situer les ZS dans leur province d'appartenance.
@@ -218,38 +218,55 @@ def _draw_zone_panel(
         )
 
 
-def zone_situation_maps(data: SitRepData, out_dir: Path) -> Path | None:
-    """2 cartes ZS (style v1, cadrées + numérotées) : cumul (période) et jour (24h).
+def _situation_map(
+    g: gpd.GeoDataFrame, provinces_touchees: list[str], title: str, path: Path
+) -> Path:
+    """Une carte ZS (style v1, cadrée + numérotée) + son panneau latéral, seule dans sa figure.
 
-    Empilées **verticalement** (1 carte + son panneau latéral par ligne)
-    plutôt que côte à côte, pour un rendu plus grand/lisible — la taille de
-    police est augmentée en conséquence (cf. ``_draw_zone_panel``).
+    Returns:
+        Path: Le chemin du PNG généré.
+    """
+    fig, (ax_map, ax_leg) = plt.subplots(1, 2, figsize=(12.5, 6.5), gridspec_kw={"width_ratios": [3.0, 2.0]})
+    _draw_zone_panel(ax_map, ax_leg, g, provinces_touchees, title)
+    fig.tight_layout()
+    fig.savefig(path, dpi=_DPI, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def zone_situation_map_cumul(data: SitRepData, out_dir: Path) -> Path | None:
+    """Carte ZS des cas confirmés **cumulés** — ``[[CARTE_1]]``.
 
     Returns:
         Path | None: Le chemin du PNG, ou ``None`` si les shapefiles sont
         indisponibles (carte omise).
     """
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / "zone_situation_maps.png"
-    assert data.raw is not None and data.raw_day is not None
+    assert data.raw is not None
     try:
         g_cum = _zones_with_counts(data.raw)
+    except Exception:
+        return None
+    return _situation_map(
+        g_cum, data.provinces_touchees, "Cas confirmés cumulés par zone de santé",
+        out_dir / "zone_situation_map_cumul.png",
+    )
+
+
+def zone_situation_map_jour(data: SitRepData, out_dir: Path) -> Path | None:
+    """Carte ZS des **nouveaux** cas confirmés (24h) — ``[[CARTE_2]]``.
+
+    Returns:
+        Path | None: Le chemin du PNG, ou ``None`` si les shapefiles sont
+        indisponibles (carte omise).
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    assert data.raw_day is not None
+    try:
         g_jour = _zones_with_counts(data.raw_day)
     except Exception:
         return None
-
-    fig, axes = plt.subplots(
-        2, 2, figsize=(12.5, 13.0), gridspec_kw={"width_ratios": [3.0, 2.0]}
+    return _situation_map(
+        g_jour, data.provinces_touchees, "Nouveaux cas confirmés (24h) par zone de santé",
+        out_dir / "zone_situation_map_jour.png",
     )
-    (ax_map_cum, ax_leg_cum), (ax_map_jour, ax_leg_jour) = axes
-    _draw_zone_panel(
-        ax_map_cum, ax_leg_cum, g_cum, data.provinces_touchees, "Cas confirmés cumulés par zone de santé"
-    )
-    _draw_zone_panel(
-        ax_map_jour, ax_leg_jour, g_jour, data.provinces_touchees,
-        "Nouveaux cas confirmés (24h) par zone de santé",
-    )
-    fig.tight_layout()
-    fig.savefig(path, dpi=_DPI, bbox_inches="tight")
-    plt.close(fig)
-    return path

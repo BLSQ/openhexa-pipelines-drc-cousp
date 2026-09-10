@@ -26,7 +26,6 @@ Filler = Callable[[dx.Cursor], None]
 
 _para = dx.para
 _bullet = dx.bullet
-_centered_line = dx.centered_line
 _table = dx.table
 _province_zone_table = dx.province_zone_table
 _replace_marker = dx.replace_marker
@@ -167,12 +166,13 @@ def _fill_conclusion(doc: DocumentT, data: SitRepData, narrative: dict) -> None:
     _fill_shape_lines(doc, "[[CONCLUSION]]", build_conclusion(data, recommandation))
 
 
-# --- Figures (corps) : [[COURBE_EPI]] / [[CARTE]] / [[PYRAMIDE]] -----------
+# --- Figures (corps) : [[COURBE_EPI]] / [[CARTE_1]] / [[CARTE_2]] / [[PYRAMIDE]] --
 
 
 def _fill_figures(doc: DocumentT, charts: dict[str, Path | None]) -> None:
     _replace_marker(doc, "[[COURBE_EPI]]", _image_filler(doc, charts.get("epi_curve"), width_in=6.5))
-    _replace_marker(doc, "[[CARTE]]", _image_filler(doc, charts.get("zone_situation_map"), width_in=6.5))
+    _replace_marker(doc, "[[CARTE_1]]", _image_filler(doc, charts.get("zone_situation_map_cumul"), width_in=6.5))
+    _replace_marker(doc, "[[CARTE_2]]", _image_filler(doc, charts.get("zone_situation_map_jour"), width_in=6.5))
     _replace_marker(doc, "[[PYRAMIDE]]", _image_filler(doc, charts.get("age_sex_pyramid"), width_in=6.5))
 
 
@@ -253,8 +253,8 @@ def _fill_tableaux(doc: DocumentT, data: SitRepData) -> None:
                     _fr_int(t["deces"]),
                     _fr_pct(t["cfr"]),
                     _fr_int(t["nouveaux"]),
-                    "",
-                    "",
+                    _fr_int(t["deces_communautaires"]),
+                    _fr_int(t["deces_intra_cte"]),
                     _fr_int(t["deces_total_jour"]),
                 ],
             }
@@ -297,7 +297,14 @@ def _fill_tableaux(doc: DocumentT, data: SitRepData) -> None:
 
 
 def _inject_narrative(doc: DocumentT, data: SitRepData, narrative: dict) -> None:
-    """Marqueurs narratifs (corps) : calculés (surveillance/labo) ou manuels (contacts)."""
+    """Marqueurs narratifs : calculés (surveillance/labo, corps) ou manuels (contacts, forme).
+
+    Les 3 marqueurs contacts vivent désormais à l'intérieur d'une forme dans
+    le nouveau template (v2) — plus en corps de document comme dans
+    l'ancien (cf. script lxml : ``[[CONTACTS_MANAGER]]`` etc. sont dans un
+    ``w:txbxContent``) — d'où ``fill_shape_lines`` (cf. B.6) au lieu de
+    ``replace_marker``, qui ne cible que les paragraphes de corps.
+    """
     narrative = narrative or {}
     contacts = narrative.get("contacts", {}) or {}
 
@@ -311,21 +318,11 @@ def _inject_narrative(doc: DocumentT, data: SitRepData, narrative: dict) -> None
 
         return fill
 
-    def centered(items: list[str] | None) -> Filler:
-        def fill(cur: dx.Cursor) -> None:
-            if not items:
-                cur.add(_para(doc, "À compléter.", italic=True, size=10, color="808080", align=dx.CENTER)._p)
-                return
-            for it in items:
-                cur.add(_centered_line(doc, str(it))._p)
-
-        return fill
-
     _replace_marker(doc, "[[ACTIONS_SURVEILLANCE]]", bullets(build_actions_surveillance(data)))
     _replace_marker(doc, "[[ACTIONS_LABORATOIRE]]", bullets(build_actions_laboratoire(data)))
-    _replace_marker(doc, "[[CONTACTS_MANAGER]]", centered(contacts.get("manager")))
-    _replace_marker(doc, "[[CONTACTS_OPERATIONS]]", centered(contacts.get("operations")))
-    _replace_marker(doc, "[[CONTACTS_REDACTIONS]]", centered(contacts.get("redactions")))
+    _fill_shape_lines(doc, "[[CONTACTS_MANAGER]]", contacts.get("manager"))
+    _fill_shape_lines(doc, "[[CONTACTS_OPERATIONS]]", contacts.get("operations"))
+    _fill_shape_lines(doc, "[[CONTACTS_REDACTIONS]]", contacts.get("redactions"))
 
 
 def render(
