@@ -9,6 +9,7 @@ from docx import Document
 from docx.document import Document as DocumentT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from reporting.ai_narrative import build_conclusion_ai, build_resume_points_cles_ai
 from reporting.highlights import (
     build_actions_laboratoire,
     build_actions_surveillance,
@@ -157,13 +158,27 @@ def _fill_faits_saillants(doc: DocumentT, data: SitRepData) -> None:
     _fill_shape_lines(doc, "[[FAITS_SAILLANTS]]", build_faits_saillants(data))
 
 
-def _fill_resume_points_cles(doc: DocumentT, data: SitRepData) -> None:
-    _fill_shape_lines(doc, "[[RESUME_POINTS_CLES]]", build_resume_points_cles(data))
+def _fill_resume_points_cles(
+    doc: DocumentT, data: SitRepData, *, ai_client=None, logger: Callable[[str], None] = print
+) -> None:
+    lines = (
+        build_resume_points_cles_ai(data, ai_client, logger)
+        if ai_client is not None
+        else build_resume_points_cles(data)
+    )
+    _fill_shape_lines(doc, "[[RESUME_POINTS_CLES]]", lines)
 
 
-def _fill_conclusion(doc: DocumentT, data: SitRepData, narrative: dict) -> None:
+def _fill_conclusion(
+    doc: DocumentT, data: SitRepData, narrative: dict, *, ai_client=None, logger: Callable[[str], None] = print
+) -> None:
     recommandation = narrative.get("conclusion_recommandation")
-    _fill_shape_lines(doc, "[[CONCLUSION]]", build_conclusion(data, recommandation))
+    lines = (
+        build_conclusion_ai(data, recommandation, ai_client, logger)
+        if ai_client is not None
+        else build_conclusion(data, recommandation)
+    )
+    _fill_shape_lines(doc, "[[CONCLUSION]]", lines)
 
 
 # --- Figures (corps) : [[COURBE_EPI]] / [[CARTE_1]] / [[CARTE_2]] / [[PYRAMIDE]] --
@@ -331,8 +346,17 @@ def render(
     template_path: str | Path,
     output_path: str | Path,
     narrative: dict | None = None,
+    *,
+    ai_client=None,
+    logger: Callable[[str], None] = print,
 ) -> Path:
     """Produit le fichier SitRep .docx et renvoie son chemin.
+
+    ``ai_client`` (client Anthropic déjà instancié) : si fourni,
+    ``[[RESUME_POINTS_CLES]]``/``[[CONCLUSION]]`` sont rédigés par l'IA (cf.
+    ``reporting.ai_narrative``), avec repli automatique sur le texte
+    déterministe en cas d'échec ou de rejet. ``None`` (défaut) → comportement
+    inchangé.
 
     Returns:
         Path: Le chemin du ``.docx`` généré.
@@ -346,8 +370,8 @@ def render(
     _fill_kpi(doc, data)
     _fill_provinces_zs_as(doc, data)
     _fill_faits_saillants(doc, data)
-    _fill_resume_points_cles(doc, data)
-    _fill_conclusion(doc, data, narrative)
+    _fill_resume_points_cles(doc, data, ai_client=ai_client, logger=logger)
+    _fill_conclusion(doc, data, narrative, ai_client=ai_client, logger=logger)
     _fill_figures(doc, charts)
     _fill_tableaux(doc, data)
     _inject_narrative(doc, data, narrative)

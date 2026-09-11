@@ -50,6 +50,7 @@ def build_sitrep(
     provinces: list[str] | None = None,
     narrative_path: str | Path | None = None,
     assets_dir: str | Path | None = None,
+    ai_client=None,
     logger: Callable[[str], None] = print,
 ) -> tuple[Path, SitRepData]:
     """Construit le SitRep et renvoie (chemin_docx, indicateurs).
@@ -61,6 +62,11 @@ def build_sitrep(
     rapport aux provinces demandées : tous les indicateurs, tableaux, visuels
     et faits saillants sont recalculés sur ce sous-ensemble (remplace le
     filtre ``zone_sante`` de v1).
+
+    ``ai_client`` (client Anthropic déjà instancié, optionnel) : transmis à
+    ``reporting.render.render`` pour la rédaction par IA de
+    ``[[RESUME_POINTS_CLES]]``/``[[CONCLUSION]]`` (cf.
+    ``reporting.ai_narrative``).
 
     Returns:
         tuple[Path, SitRepData]: Le chemin du ``.docx`` généré et les
@@ -123,6 +129,6 @@ def build_sitrep(
 
     output_path = Path(output_path) if output_path else _default_output(data.reporting_end, slug)
     logger(f"Rendu du document : {output_path}")
-    render.render(data, chart_paths, template_path, output_path, narrative)
+    render.render(data, chart_paths, template_path, output_path, narrative, ai_client=ai_client, logger=logger)
     logger("SitRep généré avec succès.")
     return output_path, data

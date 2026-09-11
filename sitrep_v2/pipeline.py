@@ -15,10 +15,11 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+import anthropic
 import config
 from core import build_sitrep
 from openhexa.sdk import (
-    Dataset,
+    CustomConnection,
     current_run,
     parameter,
     pipeline,
@@ -52,60 +53,57 @@ from openhexa.sdk import (
     required=False,
 )
 @parameter(
-    "template_file",
-    type=str,
-    name="Nom du fichier template (.docx)",
+    "use_ai_narrative",
+    type=bool,
+    name="Rédaction par IA (résumé + conclusion)",
     help=(
-        "Nom du fichier dans pipelines/sitrep/template/ du workspace. "
-        "Vide = valeur par défaut (config.DEFAULT_TEMPLATE)."
+        "Si activé (et une connexion IA renseignée), [[RESUME_POINTS_CLES]] et "
+        "[[CONCLUSION]] sont rédigés par un modèle Claude à partir des indicateurs "
+        "déjà calculés (jamais recalculés), avec repli automatique sur le texte "
+        "habituel en cas d'échec ou de chiffre non reconnu."
     ),
+    default=False,
     required=False,
 )
 @parameter(
-    "dst_file",
-    type=str,
-    name="Fichier de sortie (.docx)",
-    help="Chemin du SitRep dans le workspace. Calculé par défaut si vide.",
-    required=False,
-)
-@parameter(
-    "dst_dataset",
-    type=Dataset,
-    name="Dataset de sortie",
-    help="Dataset OpenHexa où publier le SitRep (optionnel).",
+    "ai_connection",
+    type=CustomConnection,
+    name="Connexion IA (clé API Anthropic)",
+    help="Connexion personnalisée portant un champ « api_key ». Requise si l'option ci-dessus est activée.",
     required=False,
 )
 def sitrep_v2(
     reporting_end: str | None = None,
     period_days: int = config.REPORTING_PERIOD_DAYS,
     province: list[str] | None = None,
-    template_file: str | None = None,
-    dst_file: str | None = None,
-    dst_dataset: Dataset | None = None,
+    use_ai_narrative: bool = False,
+    ai_connection: CustomConnection | None = None,
 ) -> None:
-    """Génère le SitRep depuis le dataset et le publie dans le workspace / dataset."""
+    """Génère le SitRep depuis le dataset et le publie dans le workspace."""
     rep_end = datetime.strptime(reporting_end, "%Y-%m-%d").date() if reporting_end else None
 
     if province:
         current_run.log_info(f"Portée demandée : {', '.join(province)}")
 
-    template_path = (
-        Path(workspace.files_path) / "pipelines/sitrep/template" / template_file
-        if template_file
-        else config.DEFAULT_TEMPLATE
-    )
-    if template_file:
-        current_run.log_info(f"Template : {template_file} (paramètre)")
+    ai_client = None
+    if use_ai_narrative:
+        if ai_connection is None:
+            current_run.log_info(
+                "AVERTISSEMENT : rédaction par IA demandée mais aucune connexion "
+                "fournie — texte habituel utilisé."
+            )
+        else:
+            ai_client = anthropic.Anthropic(api_key=ai_connection.api_key)
 
-    output_path = Path(dst_file) if dst_file else None
     out, data = build_sitrep(
-        template_path=template_path,
-        output_path=output_path,
+        template_path=config.DEFAULT_TEMPLATE,
+        output_path=None,
         reporting_end=rep_end,
         period_days=period_days,
         sitrep_number=config.SITREP_NUMBER,
         provinces=province,
         assets_dir=Path(workspace.files_path) / "pipelines/sitrep/assets",
+        ai_client=ai_client,
         logger=current_run.log_info,
     )
 
@@ -115,15 +113,6 @@ def sitrep_v2(
         f"(cumul confirmés = {data.kpi['cumul_confirmes']}, "
         f"provinces touchées = {', '.join(data.provinces_touchees)})"
     )
-
-    if dst_dataset is not None:
-        _publish_to_dataset(dst_dataset, out)
-
-
-def _publish_to_dataset(dataset: Dataset, doc_path: Path) -> None:
-    version = dataset.create_version(f"SitRep {datetime.now().strftime('%Y-%m-%d_%H:%M')}")
-    version.add_file(str(doc_path), filename=doc_path.name)
-    current_run.log_info(f"SitRep publié dans le dataset {dataset.name}.")
 
 
 if __name__ == "__main__":

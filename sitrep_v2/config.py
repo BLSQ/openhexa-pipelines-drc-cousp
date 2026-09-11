@@ -28,7 +28,7 @@ def _resolve_layout() -> tuple[Path, Path, Path, str]:
         root,
         root / "pipelines/sitrep/generated_files",
         root / "pipelines/sitrep/geometry",
-        "Template_SitRep_MVE_nouveau_v2.docx",
+        "Template_SitRep_MVE.docx",
     )
 
 
@@ -126,3 +126,5 @@ REPORTING_PERIOD_DAYS = 1
 
 ACCENT_RED = "EE0000"
 ACCENT_DARK_BLUE = "002060"
+
+AI_NARRATIVE_MODEL = "claude-haiku-4-5-20251001"
