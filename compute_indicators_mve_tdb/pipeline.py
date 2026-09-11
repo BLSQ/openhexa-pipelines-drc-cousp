@@ -1101,9 +1101,13 @@ def aggregate_rapportage(
     n_deces, date_sortie_cte pour n_gueri. Les indicateurs partageant la même
     date source sont agrégés ensemble en une seule passe, puis les résultats
     par date source sont fusionnés (jointure externe) sur (date_rapportage,
-    zone_sante, province, sexe_norm, tranche_age, geo_hierarchie), les
-    valeurs manquantes étant complétées à 0. Rattache enfin les coordonnées
-    ZS et province, comme aggregate_indicators().
+    aire_sante, zone_sante, province, sexe_norm, tranche_age, geo_hierarchie),
+    les valeurs manquantes étant complétées à 0. Grain le plus bas (aire de
+    santé) avec les colonnes parentes (zone_sante, province) pour permettre
+    des agrégations à des niveaux plus élevés côté consommateurs (ex.
+    sitrep_v2). Rattache enfin les coordonnées ZS et province, comme
+    aggregate_indicators() (au niveau zone de santé : aucune géométrie par
+    aire de santé n'est nécessaire pour l'instant).
 
     Args:
         indicators: Liste de ligne enrichie issue de compute_indicators().
@@ -1111,8 +1115,8 @@ def aggregate_rapportage(
         ou_provinces: Unités d'organisation province (coordonnées).
 
     Returns:
-        Les agrégats, une ligne par (date_rapportage, ZS, province, sexe,
-        tranche d'âge).
+        Les agrégats, une ligne par (date_rapportage, aire de santé, ZS,
+        province, sexe, tranche d'âge).
     """
     df = indicators.copy()
     for col in (
@@ -1130,7 +1134,7 @@ def aggregate_rapportage(
     df["date_preleves_calc"] = df["date_prelevement"].fillna(df["date_reception_labo"])
     df["date_deces"] = pd.to_datetime(reconstruct_date_deces(df), errors="coerce").dt.normalize()
 
-    dims = ["zone_sante", "province", "sexe_norm", "tranche_age", "geo_hierarchie"]
+    dims = ["aire_sante", "zone_sante", "province", "sexe_norm", "tranche_age", "geo_hierarchie"]
 
     par_date: dict[str, dict[str, tuple[str, object]]] = {}
     for indicateur, date_col in config.RAPPORTAGE_DATE_SOURCE.items():
