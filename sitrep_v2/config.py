@@ -128,3 +128,12 @@ ACCENT_RED = "EE0000"
 ACCENT_DARK_BLUE = "002060"
 
 AI_NARRATIVE_MODEL = "claude-haiku-4-5-20251001"
+
+# Réduction automatique de police (utils.docx.fill_shape_lines,
+# fit_chars_at_default) quand le texte dépasse la capacité estimée de
+# l'encadré à 10,5pt (heuristique par nombre de caractères, cf. docstring de
+# `_autofit_half_points` — valeurs calibrées approximativement sur les
+# dimensions réelles des formes du template).
+AUTOFIT_CHARS_RESUME_POINTS_CLES = 1400
+AUTOFIT_CHARS_CONCLUSION = 1100
+AUTOFIT_MIN_PT = 8.0

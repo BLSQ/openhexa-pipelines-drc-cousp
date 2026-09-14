@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import math
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -614,7 +615,54 @@ def _ensure_para_spacing_after(p_el: BaseOxmlElement, after: int = 160) -> None:
     spacing.set(qn("w:after"), str(after))
 
 
-def fill_shape_lines(doc: DocumentT, token: str, lines: list[str] | None) -> None:
+def _rendered_length(text: str) -> int:
+    """Longueur affichée d'une ligne : les délimiteurs ``**`` du gras ne comptent pas."""
+    return sum(len(seg) for seg, _ in _split_bold(text))
+
+
+def _autofit_half_points(
+    items: list[str], *, fit_chars_at_default: int, default_pt: float, min_pt: float
+) -> int | None:
+    """Taille de police réduite (demi-points) si le texte dépasse la capacité estimée.
+
+    Heuristique par surface (capacité de l'encadré ∝ 1/taille²), calibrée
+    approximativement sur les dimensions réelles de la forme dans le
+    template — pas une simulation exacte du rendu Word.
+
+    Returns:
+        int | None: Nouvelle taille en demi-points, ou ``None`` si la taille
+        par défaut suffit déjà.
+    """
+    total_chars = sum(_rendered_length(item) for item in items)
+    if total_chars <= fit_chars_at_default:
+        return None
+    new_pt = max(min_pt, default_pt * math.sqrt(fit_chars_at_default / total_chars))
+    return round(new_pt * 2)
+
+
+def _set_run_size_half_points(run: BaseOxmlElement, half_points: int) -> None:
+    """Fixe la taille de police (``w:sz``/``w:szCs``, en demi-points) d'un run."""
+    rpr = run.find(qn("w:rPr"))
+    if rpr is None:
+        rpr = OxmlElement("w:rPr")
+        run.insert(0, rpr)
+    for tag in ("w:sz", "w:szCs"):
+        el = rpr.find(qn(tag))
+        if el is None:
+            el = OxmlElement(tag)
+            rpr.append(el)
+        el.set(qn("w:val"), str(half_points))
+
+
+def fill_shape_lines(
+    doc: DocumentT,
+    token: str,
+    lines: list[str] | None,
+    *,
+    fit_chars_at_default: int | None = None,
+    default_pt: float = 10.5,
+    min_pt: float = 8.0,
+) -> None:
     """Remplit un marqueur multi-lignes dans une forme, un paragraphe par ligne.
 
     Chaque paragraphe marqueur trouvé (cf. ``_marker_runs`` — souvent 2,
@@ -626,10 +674,22 @@ def fill_shape_lines(doc: DocumentT, token: str, lines: list[str] | None) -> Non
     marquer du texte en gras avec ``**...**`` (converti en runs séparés, cf.
     ``_write_line_runs`` — jamais rendu littéralement). Texte de repli si
     ``lines`` est vide.
+
+    ``fit_chars_at_default`` active une réduction automatique de la taille de
+    police (jusqu'à ``min_pt``) si le texte dépasse la capacité estimée de la
+    forme à ``default_pt`` (cf. ``_autofit_half_points``) — ``None`` (défaut)
+    désactive ce mécanisme et conserve la taille du template telle quelle.
     """
     items = [str(line) for line in lines or []] or ["À compléter."]
+    new_half_points = (
+        _autofit_half_points(items, fit_chars_at_default=fit_chars_at_default, default_pt=default_pt, min_pt=min_pt)
+        if fit_chars_at_default is not None
+        else None
+    )
     for p_el, run in _marker_runs(doc, token):
         template_run = copy.deepcopy(run)
+        if new_half_points is not None:
+            _set_run_size_half_points(template_run, new_half_points)
         _ensure_para_spacing_after(p_el)
         _write_line_runs(p_el, template_run, items[0])
         anchor = p_el

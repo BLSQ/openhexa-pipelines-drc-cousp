@@ -13,6 +13,8 @@ from utils.numbers import pct
 
 _NUMBER_RE = re.compile(r"\d[\d\s ]*(?:,\d+)?\s?%?")
 
+_SCOPE_TERMS = ("national", "nationale", "nationaux", "nationales", "territoire national", "pays")
+
 _SYSTEM_PROMPT = """Tu rédiges un paragraphe de rapport épidémiologique officiel \
 (riposte MVE, RDC), registre formel, en français.
 
@@ -21,6 +23,13 @@ RÈGLES ABSOLUES :
 dans la liste de faits ci-dessous. N'en invente, n'en déduis et n'en arrondis \
 aucun autre.
 - Si une information n'est pas dans la liste, ne la mentionne pas.
+- N'ajoute aucun qualificatif de portée géographique ou territoriale \
+(« national », « pays », « territoire national », etc.) qui ne figure pas \
+déjà tel quel dans les faits fournis. Par exemple, si un fait donne un \
+nombre de zones de santé touchées parmi les provinces suivies, ne dis \
+jamais que cela représente une part du « maillage sanitaire national » ou \
+du « pays » — ce chiffre ne concerne que les provinces mentionnées dans le \
+fait, pas l'ensemble du pays.
 - Mets en gras (**...**) les chiffres clés, comme dans un rapport officiel.
 - Réponds avec exactement {n} paragraphes, un par ligne, sans numérotation, \
 sans puce, sans texte d'introduction ni de conclusion ajouté."""
@@ -59,7 +68,8 @@ def _facts_resume_points_cles(data: SitRepData) -> list[str]:
         facts.append(f"Nouveaux cas par province (jour) : {detail}")
     n_zs = sum(int(d.get("touchees", 0)) for d in data.zones_atteintes.values())
     facts.append(
-        f"Zones de santé touchées (cumul) : {_fr_int(n_zs)} sur {_fr_int(config.TOTAL_ZONES_SANTE)} "
+        f"Zones de santé touchées (cumul, dans les {_fr_int(len(config.PROVINCE_TOTAL_ZONES))} provinces suivies) : "
+        f"{_fr_int(n_zs)} sur {_fr_int(config.TOTAL_ZONES_SANTE)} zones de santé que comptent ces provinces "
         f"({pct(n_zs, config.TOTAL_ZONES_SANTE)})"
     )
     par_zs = sorted(
@@ -129,23 +139,62 @@ def _normalize_number(token: str) -> str:
     return re.sub(r"[\s%]", "", token)
 
 
-def _validate(paragraphs: list[str], facts: list[str], provinces_touchees: list[str]) -> bool:
-    """Rejette tout texte contenant un chiffre ou un nom de province non fourni.
+def _ungrounded_scope_terms(paragraphs: list[str], facts: list[str]) -> list[str]:
+    """Termes de portée (``_SCOPE_TERMS``) présents dans le texte mais absents des faits.
+
+    Un texte ne peut légitimement employer un terme de portée (échelle
+    nationale, ex. « national », « pays ») que si un fait fourni l'emploie
+    déjà lui-même — sinon c'est une généralisation ajoutée par le modèle,
+    non un chiffre ou un lieu qu'une simple liste blanche suffirait à
+    couvrir.
 
     Returns:
-        bool: ``True`` si chaque chiffre du texte correspond (une fois
-        normalisé, cf. ``_normalize_number``) à un fait fourni, et si aucune
-        province hors ``provinces_touchees`` n'est mentionnée.
+        list[str]: Les termes de ``_SCOPE_TERMS`` non ancrés dans les faits.
+    """
+    text = " ".join(paragraphs).lower()
+    facts_text = " ".join(facts).lower()
+    return [
+        t
+        for t in _SCOPE_TERMS
+        if re.search(rf"\b{re.escape(t)}\b", text) and not re.search(rf"\b{re.escape(t)}\b", facts_text)
+    ]
+
+
+def _unrecognized(
+    paragraphs: list[str], facts: list[str], provinces_touchees: list[str]
+) -> tuple[list[str], list[str], list[str]]:
+    """Chiffres, provinces et termes de portée du texte absents des faits fournis.
+
+    Returns:
+        tuple[list[str], list[str], list[str]]: ``(chiffres_non_reconnus,
+        provinces_non_reconnues, termes_de_portee_non_ancres)``, tous vides
+        si le texte est entièrement cohérent avec les faits (chiffres
+        comparés normalisés, cf. ``_normalize_number``).
     """
     allowed_numbers = set()
     for f in facts:
         allowed_numbers.update(_normalize_number(m.group()) for m in _NUMBER_RE.finditer(f))
     text = " ".join(paragraphs)
-    for m in _NUMBER_RE.finditer(text):
-        if _normalize_number(m.group()) not in allowed_numbers:
-            return False
+    bad_numbers = [
+        m.group() for m in _NUMBER_RE.finditer(text) if _normalize_number(m.group()) not in allowed_numbers
+    ]
     mentioned = {p for p in config.PROVINCE_TOTAL_ZONES if p in text}
-    return mentioned <= set(provinces_touchees)
+    bad_provinces = sorted(mentioned - set(provinces_touchees))
+    bad_scope = _ungrounded_scope_terms(paragraphs, facts)
+    return bad_numbers, bad_provinces, bad_scope
+
+
+def _validate(paragraphs: list[str], facts: list[str], provinces_touchees: list[str]) -> bool:
+    """Rejette tout texte contenant un chiffre, un lieu ou un terme de portée non fourni.
+
+    Returns:
+        bool: ``True`` si chaque chiffre du texte correspond (une fois
+        normalisé, cf. ``_normalize_number``) à un fait fourni, si aucune
+        province hors ``provinces_touchees`` n'est mentionnée, et si aucun
+        terme de ``_SCOPE_TERMS`` n'est employé sans être ancré dans les faits.
+    """
+    bad_numbers, bad_provinces, bad_scope = _unrecognized(paragraphs, facts, provinces_touchees)
+    return not bad_numbers and not bad_provinces and not bad_scope
 
 
 def _generate_or_fallback(
@@ -161,10 +210,13 @@ def _generate_or_fallback(
     except Exception as e:  # noqa: BLE001 — tout échec d'appel doit retomber sur le texte déterministe
         logger(f"AVERTISSEMENT : appel IA pour {label} échoué ({e}) — repli sur le texte déterministe.")
         return fallback
-    if not _validate(paragraphs, facts, provinces_touchees):
+    bad_numbers, bad_provinces, bad_scope = _unrecognized(paragraphs, facts, provinces_touchees)
+    if bad_numbers or bad_provinces or bad_scope:
         logger(
-            f"AVERTISSEMENT : texte IA pour {label} rejeté (chiffre ou lieu non reconnu) "
-            "— repli sur le texte déterministe."
+            f"AVERTISSEMENT : texte IA pour {label} rejeté — chiffre(s) non reconnu(s) : "
+            f"{bad_numbers or 'aucun'} ; lieu(x) non reconnu(s) : {bad_provinces or 'aucun'} ; "
+            f"terme(s) de portée non ancré(s) : {bad_scope or 'aucun'} "
+            f"— texte généré : {paragraphs!r} — repli sur le texte déterministe."
         )
         return fallback
     return paragraphs

@@ -166,7 +166,13 @@ def _fill_resume_points_cles(
         if ai_client is not None
         else build_resume_points_cles(data)
     )
-    _fill_shape_lines(doc, "[[RESUME_POINTS_CLES]]", lines)
+    _fill_shape_lines(
+        doc,
+        "[[RESUME_POINTS_CLES]]",
+        lines,
+        fit_chars_at_default=config.AUTOFIT_CHARS_RESUME_POINTS_CLES,
+        min_pt=config.AUTOFIT_MIN_PT,
+    )
 
 
 def _fill_conclusion(
@@ -178,7 +184,13 @@ def _fill_conclusion(
         if ai_client is not None
         else build_conclusion(data, recommandation)
     )
-    _fill_shape_lines(doc, "[[CONCLUSION]]", lines)
+    _fill_shape_lines(
+        doc,
+        "[[CONCLUSION]]",
+        lines,
+        fit_chars_at_default=config.AUTOFIT_CHARS_CONCLUSION,
+        min_pt=config.AUTOFIT_MIN_PT,
+    )
 
 
 # --- Figures (corps) : [[COURBE_EPI]] / [[CARTE_1]] / [[CARTE_2]] / [[PYRAMIDE]] --
