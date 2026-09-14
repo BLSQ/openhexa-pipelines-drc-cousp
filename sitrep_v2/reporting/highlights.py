@@ -135,7 +135,9 @@ def build_faits_saillants(data: SitRepData) -> list[str]:
     kpi = data.kpi
     n_jour = int(kpi["nouveaux_confirmes_periode"])
     n_veille = int(kpi["nouveaux_confirmes_veille"])
-    phrase = f"Au cours des dernières 24 heures, les nouveaux cas confirmés ont {_delta_phrase(n_jour, n_veille)}"
+    phrase = (
+        f"Au cours des dernières 24 heures, les nouveaux cas confirmés ont {_delta_phrase(n_jour, n_veille)}"
+    )
 
     dc_jour, dc_veille = kpi["deces_communautaires_periode"], kpi["deces_communautaires_veille"]
     if isinstance(dc_jour, int) and isinstance(dc_veille, int):
@@ -249,7 +251,11 @@ def build_resume_points_cles(data: SitRepData) -> list[str]:
 
     # 5) Zones touchées par province, triées par nombre décroissant.
     par_zs = sorted(
-        ((p, d.get("touchees", 0), d.get("total")) for p, d in data.zones_atteintes.items() if d.get("touchees")),
+        (
+            (p, d.get("touchees", 0), d.get("total"))
+            for p, d in data.zones_atteintes.items()
+            if d.get("touchees")
+        ),
         key=lambda t: t[1],
         reverse=True,
     )
@@ -403,7 +409,9 @@ def build_commentaire_tableau2(data: SitRepData) -> list[str]:
         de nouveaux cas).
     """
     n_jour = int(data.kpi["nouveaux_confirmes_periode"])
-    ranked = sorted((r for r in data.tableau1 if r["nouveaux"] > 0), key=lambda r: r["nouveaux"], reverse=True)
+    ranked = sorted(
+        (r for r in data.tableau1 if r["nouveaux"] > 0), key=lambda r: r["nouveaux"], reverse=True
+    )
     lines: list[str] = []
     if not ranked:
         return lines
@@ -472,7 +480,9 @@ def build_actions_surveillance(data: SitRepData) -> list[str]:
         "ont été vérifiées."
     )
     if s["pct_suspects_investigues"] == 100.0:
-        phrase += f" Les {_fr_int(s['n_suspects_valides'])} cas suspects validés ont tous été investigués (100 %)."
+        phrase += (
+            f" Les {_fr_int(s['n_suspects_valides'])} cas suspects validés ont tous été investigués (100 %)."
+        )
     elif isinstance(s["pct_suspects_investigues"], (int, float)):
         phrase += (
             f" Les {_fr_int(s['n_suspects_valides'])} cas suspects validés ont été investigués "

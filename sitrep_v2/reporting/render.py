@@ -92,7 +92,9 @@ def _image_filler(doc: DocumentT, path: str | Path | None, *, width_in: float = 
 
     def fill(cur: dx.Cursor) -> None:
         if not path or not Path(path).exists():
-            cur.add(_para(doc, "(visuel indisponible)", italic=True, size=9, color="BFBFBF", align=dx.CENTER)._p)
+            cur.add(
+                _para(doc, "(visuel indisponible)", italic=True, size=9, color="BFBFBF", align=dx.CENTER)._p
+            )
             return
         p = _para(doc, "", align=dx.CENTER)
         p.add_run().add_picture(str(path), width=dx.Inches(width_in))
@@ -176,7 +178,12 @@ def _fill_resume_points_cles(
 
 
 def _fill_conclusion(
-    doc: DocumentT, data: SitRepData, narrative: dict, *, ai_client=None, logger: Callable[[str], None] = print
+    doc: DocumentT,
+    data: SitRepData,
+    narrative: dict,
+    *,
+    ai_client=None,
+    logger: Callable[[str], None] = print,
 ) -> None:
     recommandation = narrative.get("conclusion_recommandation")
     lines = (
@@ -198,8 +205,12 @@ def _fill_conclusion(
 
 def _fill_figures(doc: DocumentT, charts: dict[str, Path | None]) -> None:
     _replace_marker(doc, "[[COURBE_EPI]]", _image_filler(doc, charts.get("epi_curve"), width_in=6.5))
-    _replace_marker(doc, "[[CARTE_1]]", _image_filler(doc, charts.get("zone_situation_map_cumul"), width_in=6.5))
-    _replace_marker(doc, "[[CARTE_2]]", _image_filler(doc, charts.get("zone_situation_map_jour"), width_in=6.5))
+    _replace_marker(
+        doc, "[[CARTE_1]]", _image_filler(doc, charts.get("zone_situation_map_cumul"), width_in=6.5)
+    )
+    _replace_marker(
+        doc, "[[CARTE_2]]", _image_filler(doc, charts.get("zone_situation_map_jour"), width_in=6.5)
+    )
     _replace_marker(doc, "[[PYRAMIDE]]", _image_filler(doc, charts.get("age_sex_pyramid"), width_in=6.5))
 
 
