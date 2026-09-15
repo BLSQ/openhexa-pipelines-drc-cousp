@@ -967,6 +967,24 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     return line_list
 
 
+def _to_naive_datetime(series: pd.Series) -> pd.Series:
+    """Parse en date, normalisée à minuit, toujours en datetime64 naïf (sans fuseau).
+
+    Certaines colonnes de dates arrivent tz-aware (UTC, ex. ``date_notification``
+    en ``pl.Datetime`` côté LLN) et d'autres naïves (``pl.Date``) — un merge
+    ultérieur sur des colonnes ``date_rapportage`` de fuseaux différents échoue
+    sinon (pandas refuse de fusionner ``datetime64[us]`` et
+    ``datetime64[ns, UTC]``). ``utc=True`` uniformise d'abord tout en UTC
+    (aware) avant de retirer le fuseau — la date obtenue après normalisation
+    est donc identique à celle qu'aurait donnée l'ancien code sur une colonne
+    déjà tz-aware (seule l'étiquette de fuseau est retirée, pas la valeur).
+
+    Returns:
+        pd.Series: La série, toujours en ``datetime64[ns]`` naïf, à minuit.
+    """
+    return pd.to_datetime(series, errors="coerce", utc=True).dt.tz_localize(None).dt.normalize()
+
+
 def reconstruct_date_deces(df: pd.DataFrame) -> pd.Series:
     """Reconstruit une date de décès unique par cas.
 
@@ -1123,9 +1141,9 @@ def aggregate_rapportage(
         "date_sortie_cte",
         "date_debut_signes_invest",
     ):
-        df[col] = pd.to_datetime(df[col], errors="coerce").dt.normalize()
+        df[col] = _to_naive_datetime(df[col])
     df["date_preleves_calc"] = df["date_prelevement"].fillna(df["date_reception_labo"])
-    df["date_deces"] = pd.to_datetime(reconstruct_date_deces(df), errors="coerce").dt.normalize()
+    df["date_deces"] = _to_naive_datetime(reconstruct_date_deces(df))
 
     dims = ["aire_sante", "zone_sante", "province", "sexe_norm", "tranche_age", "geo_hierarchie"]
 
