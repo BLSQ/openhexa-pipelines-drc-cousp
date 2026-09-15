@@ -974,6 +974,24 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     return line_list
 
 
+def _to_naive_datetime(series: pd.Series) -> pd.Series:
+    """Parse en date, normalisée à minuit, toujours en datetime64 naïf (sans fuseau).
+
+    Certaines colonnes de dates arrivent tz-aware (UTC, ex. ``date_notification``
+    en ``pl.Datetime`` côté LLN) et d'autres naïves (``pl.Date``) — un merge
+    ultérieur sur des colonnes ``date_rapportage`` de fuseaux différents échoue
+    sinon (pandas refuse de fusionner ``datetime64[us]`` et
+    ``datetime64[ns, UTC]``). ``utc=True`` uniformise d'abord tout en UTC
+    (aware) avant de retirer le fuseau — la date obtenue après normalisation
+    est donc identique à celle qu'aurait donnée l'ancien code sur une colonne
+    déjà tz-aware (seule l'étiquette de fuseau est retirée, pas la valeur).
+
+    Returns:
+        pd.Series: La série, toujours en ``datetime64[ns]`` naïf, à minuit.
+    """
+    return pd.to_datetime(series, errors="coerce", utc=True).dt.tz_localize(None).dt.normalize()
+
+
 def reconstruct_date_deces(df: pd.DataFrame) -> pd.Series:
     """Reconstruit une date de décès unique par cas.
 
@@ -1101,9 +1119,13 @@ def aggregate_rapportage(
     n_deces, date_sortie_cte pour n_gueri. Les indicateurs partageant la même
     date source sont agrégés ensemble en une seule passe, puis les résultats
     par date source sont fusionnés (jointure externe) sur (date_rapportage,
-    zone_sante, province, sexe_norm, tranche_age, geo_hierarchie), les
-    valeurs manquantes étant complétées à 0. Rattache enfin les coordonnées
-    ZS et province, comme aggregate_indicators().
+    aire_sante, zone_sante, province, sexe_norm, tranche_age, geo_hierarchie),
+    les valeurs manquantes étant complétées à 0. Grain le plus bas (aire de
+    santé) avec les colonnes parentes (zone_sante, province) pour permettre
+    des agrégations à des niveaux plus élevés côté consommateurs (ex.
+    sitrep_v2). Rattache enfin les coordonnées ZS et province, comme
+    aggregate_indicators() (au niveau zone de santé : aucune géométrie par
+    aire de santé n'est nécessaire pour l'instant).
 
     Args:
         indicators: Liste de ligne enrichie issue de compute_indicators().
@@ -1111,8 +1133,8 @@ def aggregate_rapportage(
         ou_provinces: Unités d'organisation province (coordonnées).
 
     Returns:
-        Les agrégats, une ligne par (date_rapportage, ZS, province, sexe,
-        tranche d'âge).
+        Les agrégats, une ligne par (date_rapportage, aire de santé, ZS,
+        province, sexe, tranche d'âge).
     """
     df = indicators.copy()
     for col in (
@@ -1126,11 +1148,11 @@ def aggregate_rapportage(
         "date_sortie_cte",
         "date_debut_signes_invest",
     ):
-        df[col] = pd.to_datetime(df[col], errors="coerce").dt.normalize()
+        df[col] = _to_naive_datetime(df[col])
     df["date_preleves_calc"] = df["date_prelevement"].fillna(df["date_reception_labo"])
-    df["date_deces"] = pd.to_datetime(reconstruct_date_deces(df), errors="coerce").dt.normalize()
+    df["date_deces"] = _to_naive_datetime(reconstruct_date_deces(df))
 
-    dims = ["zone_sante", "province", "sexe_norm", "tranche_age", "geo_hierarchie"]
+    dims = ["aire_sante", "zone_sante", "province", "sexe_norm", "tranche_age", "geo_hierarchie"]
 
     par_date: dict[str, dict[str, tuple[str, object]]] = {}
     for indicateur, date_col in config.RAPPORTAGE_DATE_SOURCE.items():
