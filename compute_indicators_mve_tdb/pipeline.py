@@ -501,10 +501,11 @@ def load_notification_events(
     current_run.log_info(f"Événements de notification lus : {df.height} lignes brutes.")
     # Événements et enrôlements supprimés dans DHIS2 (soft delete), ainsi que les
     # enrôlements sans numéro Epid ni sexe : ils ne correspondent à aucun cas
-    # exploitable et gonflent les compteurs.
+    # exploitable et gonflent les compteurs. fill_null(False) : un drapeau nul
+    # ferait sinon disparaître la ligne silencieusement (filtre à null).
     df = df.filter(
-        (~pl.col("enrollment_deleted"))
-        & (~pl.col("deleted"))
+        (~pl.col("enrollment_deleted").fill_null(False))
+        & (~pl.col("deleted").fill_null(False))
         & (pl.col("numero_epid").is_not_null())
         & (pl.col("sexe").is_not_null())
     ).drop(["enrollment_deleted", "deleted"])
@@ -732,7 +733,15 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     date_deces = pl.when(proxy_prelev).then(pl.col("date_prelevement")).otherwise(date_deces)
     proxy_notif = date_deces.is_null() & pl.col("is_deces") & pl.col("date_notification").is_not_null()
     date_deces = pl.when(proxy_notif).then(pl.col("date_notification").cast(pl.Date)).otherwise(date_deces)
-    lln = lln.with_columns(date_deces.alias("date_deces"))
+    # Publiée uniquement pour les décès avérés : depuis que date_deces_final
+    # n'établit plus le décès à elle seule, elle renseignerait sinon une date de
+    # décès sur un cas dont is_deces vaut False.
+    lln = lln.with_columns(
+        pl.when(pl.col("is_deces"))
+        .then(date_deces)
+        .otherwise(pl.lit(None, dtype=pl.Date))
+        .alias("date_deces")
+    )
 
     n_confirme = int(lln.get_column("is_confirme").sum())
     n_classification = int(
@@ -1004,11 +1013,14 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     line_list["is_resultat_valide"] = line_list["is_confirme"] | line_list["is_non_cas"]
     line_list["n_echantillons_valides"] = line_list["n_pos"].fillna(0) + line_list["n_neg"].fillna(0)
 
+    # Définition alignée sur compute_lln_flags : la date de décès du statut
+    # final (date_deces_final) n'établit plus le décès à elle seule.
     line_list["is_deces"] = (
         (line_list["nature_alerte"] == "Décès")
         | (line_list["statut_final_patient"] == "Décédé")
-        | (line_list["date_deces_final"].notna())
         | (line_list["statut_patient_prelevement"] == "Décédé")
+        | (line_list["etat_patient_investigation"] == "Décès")
+        | (line_list["modalite_sortie_cte"] == "Décédé(e)")
         | (line_list["date_deces_pci"].notna())
     )
     line_list["is_deces_confirme"] = line_list["is_deces"] & line_list["is_confirme"]
@@ -1091,7 +1103,11 @@ def reconstruct_date_deces(df: pd.DataFrame) -> pd.Series:
     date_deces = date_deces.mask(proxy_prelev, df["date_prelevement"])
 
     proxy_notif = date_deces.isna() & df["is_deces"] & df["date_notif"].notna()
-    return date_deces.mask(proxy_notif, df["date_notif"])
+    date_deces = date_deces.mask(proxy_notif, df["date_notif"])
+
+    # Publiée uniquement pour les décès avérés : date_deces_final, première de la
+    # cascade, n'établit plus le décès à elle seule (cf. compute_indicators).
+    return date_deces.where(df["is_deces"])
 
 
 def build_line_list_individu(
