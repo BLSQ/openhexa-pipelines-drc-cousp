@@ -80,6 +80,10 @@ RAPPORTAGE_DATE_SOURCE: dict[str, str] = {
 # Table de la liste de ligne nominative (grain cas)
 LLN_TABLE = "COD_MVE_Tracker_Individu"
 
+# Référentiel géographique complet (province, zone_sante, aire_sante),
+# indépendant du grain daté des 4 tables agrégées.
+GEO_REFERENTIEL_TABLE = "COD_MVE_Tracker_Referentiel_Geo"
+
 AGE_BINS = [0, 5, 15, 25, 45, 65, float("inf")]
 AGE_LABELS = [
     "1. 0-4 ans",
