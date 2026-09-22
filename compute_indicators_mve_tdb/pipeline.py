@@ -78,8 +78,8 @@ FLAG_SOURCE_DTYPES: dict[str, pl.DataType] = {
     "statut_patient_prelevement": pl.String,
     "date_deces_pci": pl.Date,
     "modalite_sortie_cte": pl.String,
+    "etat_patient_investigation": pl.String,
     "date_prelevement": pl.Date,
-    "numero_prelevement": pl.String,
     "date_reception_labo": pl.Date,
     "date_analyse_labo": pl.Date,
     "date_notification": pl.Datetime,
@@ -138,9 +138,10 @@ def compute_indicators_mve_tdb(
 
     case_data = build_case_data(org_units, fenetre_min, fenetre_max, db_url)
     ou_zone_sante = build_org_units(org_units, "zone_sante")
+    ou_aire_sante = build_org_units(org_units, "aire_sante")
     ou_provinces = build_org_units(org_units, "province")
 
-    export_tables(case_data, ou_zone_sante, ou_provinces, db_url)
+    export_tables(case_data, ou_zone_sante, ou_aire_sante, ou_provinces, db_url)
 
     export_to_dataset(case_data, lln_dataset)
 
@@ -213,6 +214,7 @@ def build_case_data(
 def export_tables(
     case_data: CaseData,
     ou_zone_sante: pl.DataFrame,
+    ou_aire_sante: pl.DataFrame,
     ou_provinces: pl.DataFrame,
     db_url: str,
 ) -> None:
@@ -228,6 +230,9 @@ def export_tables(
     Args:
         case_data: Charge utile issue de build_case_data().
         ou_zone_sante: Unités d'organisation zone de santé (coordonnées).
+        ou_aire_sante: Unités d'organisation aire de santé (référentiel complet),
+            pour le référentiel géographique (province, zone_sante, aire_sante)
+            publié séparément — indépendant du grain daté des 4 tables agrégées.
         ou_provinces: Unités d'organisation province (coordonnées).
         db_url: URI de connexion à la base du workspace.
     """
@@ -241,6 +246,14 @@ def export_tables(
 
     individu = build_line_list_individu(indicators, ou_zone_sante, ou_provinces)  # type: ignore
     export_to_database(individu, config.LLN_TABLE, db_url)
+
+    geo_referentiel = build_geo_referentiel(ou_aire_sante)
+    file_paths.extend(
+        save_data_for_dataset(
+            geo_referentiel, config.GEO_REFERENTIEL_TABLE, Path("/home/jovyan/tmp/mve_tracker_tables")
+        )
+    )
+
     publish_data_to_dataset(
         file_paths=file_paths,
         dataset_id=config.MVE_TRACKER_DATASET_ID,
@@ -295,27 +308,35 @@ def publish_data_to_dataset(file_paths: list[Path], dataset_id: str) -> None:
 @tache_robuste
 def build_org_units(
     org_units: pl.DataFrame,
-    niveau: Literal["province", "zone_sante"],
+    niveau: Literal["province", "zone_sante", "aire_sante"],
 ) -> pl.DataFrame:
-    """Prépare les unités d'organisation d'un niveau donné (province ou zone de santé).
+    """Prépare les unités d'organisation d'un niveau donné.
 
     Filtre sur le niveau hiérarchique, reconstruit la hiérarchie géographique et
     extrait l'anneau extérieur du polygone, sérialisé en JSON (jointure carto).
 
+    Pour « aire_sante », contrairement aux 2 autres niveaux, les lignes sans
+    géométrie sont conservées (`coordinates` à None) plutôt que filtrées : la
+    géométrie n'y est pas systématique (~92-99% selon la province, vérifié sur
+    le référentiel DHIS2), l'écarter fausserait un comptage par province.
+
     Args:
         org_units: Unités d'organisation issues de la toolbox DHIS2.
-        niveau: « province » (level 2) ou « zone_sante » (level 3).
+        niveau: « province » (level 2), « zone_sante » (level 3) ou
+            « aire_sante » (level 4).
 
     Returns:
         Les unités du niveau demandé, avec geo_hierarchie et coordinates (JSON).
     """
-    if niveau == "zone_sante":
+    if niveau == "aire_sante":
+        level, cols_geo = 4, ["level_1_name", "level_2_name", "level_3_name", "level_4_name"]
+    elif niveau == "zone_sante":
         level, cols_geo = 3, ["level_1_name", "level_2_name", "level_3_name"]
     else:
         level, cols_geo = 2, ["level_1_name", "level_2_name"]
 
     def _anneau_exterieur(geom: object) -> object:
-        """Anneau extérieur du polygone (les ZS sont imbriquées d'un niveau de plus).
+        """Anneau extérieur du polygone (ZS/AS imbriquées d'un niveau de plus).
 
         Returns:
             La liste de coordonnées de l'anneau extérieur, ou None si absente.
@@ -323,20 +344,51 @@ def build_org_units(
         if not isinstance(geom, str):
             return None
         coords = json.loads(geom)["coordinates"][0]
-        return coords[0] if niveau == "zone_sante" else coords
+        return coords[0] if niveau in ("zone_sante", "aire_sante") else coords
 
-    prepared = (
-        org_units.filter((pl.col("level") == level) & pl.col("geometry").is_not_null())
-        .with_columns(
-            pl.concat_str(cols_geo, separator=" / ").alias("geo_hierarchie"),
-            pl.col("geometry").map_elements(_anneau_exterieur, return_dtype=pl.Object).alias("coordinates"),
-        )
-        .with_columns(
-            pl.col("coordinates").map_elements(json.dumps, return_dtype=pl.Utf8).alias("coordinates")
-        )
+    filtre = pl.col("level") == level
+    if niveau != "aire_sante":
+        filtre = filtre & pl.col("geometry").is_not_null()
+
+    base = org_units.filter(filtre).with_columns(
+        pl.concat_str(cols_geo, separator=" / ").alias("geo_hierarchie"),
+        pl.col("geometry").map_elements(_anneau_exterieur, return_dtype=pl.Object).alias("coordinates"),
     )
-    current_run.log_info(f"Unités d'organisation « {niveau} » préparées : {prepared.height} géométries.")
+    prepared = base.with_columns(
+        pl.col("coordinates").map_elements(json.dumps, return_dtype=pl.Utf8).alias("coordinates")
+    )
+    if niveau == "aire_sante":
+        n_avec_geometrie = base.select(pl.col("coordinates").is_not_null().sum()).item()
+        current_run.log_info(
+            f"Unités d'organisation « aire_sante » préparées : {prepared.height} "
+            f"(dont {n_avec_geometrie} avec géométrie)."
+        )
+    else:
+        current_run.log_info(
+            f"Unités d'organisation « {niveau} » préparées : {prepared.height} géométries."
+        )
     return prepared
+
+
+def build_geo_referentiel(ou_aire_sante: pl.DataFrame) -> pd.DataFrame:
+    """Référentiel géographique complet (province, zone_sante, aire_sante).
+
+    Une ligne par aire de santé du référentiel DHIS2, y compris celles sans
+    aucune activité tracker — indépendant du grain daté des 4 tables agrégées
+    (aucune colonne date/sexe/tranche d'âge), pour qu'un consommateur (ex.
+    sitrep_v2) puisse calculer un total par province ou par zone de santé sans
+    dépendre de la présence de cas dans les données.
+
+    Args:
+        ou_aire_sante: Unités d'organisation aire de santé (référentiel complet).
+
+    Returns:
+        Une ligne par aire de santé, colonnes (province, zone_sante, aire_sante).
+    """
+    geo = ou_aire_sante["geo_hierarchie"].to_pandas().apply(parse_geo).apply(pd.Series)
+    referentiel = geo[["province", "zone_sante", "aire_sante"]].reset_index(drop=True)
+    current_run.log_info(f"Référentiel géographique préparé : {len(referentiel)} aires de santé.")
+    return referentiel
 
 
 @compute_indicators_mve_tdb.task
@@ -416,9 +468,11 @@ def load_notification_events(
     """
     colonnes = [
         "event_id",
+        "deleted",
         "tracked_entity_id",
         "enrollment_id",
         "enrollment_org_unit",
+        "enrollment_deleted",
         "enrolled_at",
         "occurred_at",
         "created_at",
@@ -444,7 +498,20 @@ def load_notification_events(
         pl.col("date_notification").cast(pl.Datetime, strict=False),
         pl.col("date_debut_symptomes").cast(pl.Date, strict=False),
     )
-    current_run.log_info(f"Événements de notification chargés : {df.height} lignes ")
+    current_run.log_info(f"Événements de notification lus : {df.height} lignes brutes.")
+    # Événements et enrôlements supprimés dans DHIS2 (soft delete), ainsi que les
+    # enrôlements sans numéro Epid ni sexe : ils ne correspondent à aucun cas
+    # exploitable et gonflent les compteurs.
+    df = df.filter(
+        (~pl.col("enrollment_deleted"))
+        & (~pl.col("deleted"))
+        & (pl.col("numero_epid").is_not_null())
+        & (pl.col("sexe").is_not_null())
+    ).drop(["enrollment_deleted", "deleted"])
+    current_run.log_info(
+        f"Événements de notification retenus : {df.height} lignes, après exclusion des "
+        "enrôlements et événements supprimés, et des numero_epid / sexe non renseignés."
+    )
     return df
 
 
@@ -612,11 +679,17 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     is_non_cas = (pl.col("n_neg").fill_null(0) >= 1) & is_alerte_valide & ~is_confirme
     is_suspect = is_alerte_valide & ~is_confirme & ~is_non_cas
     is_resultat_valide = is_confirme | is_non_cas
+    # La date de décès saisie au stage Statut final (date_deces_final) n'entre
+    # plus dans la définition : elle est parfois renseignée sur des cas qui ne
+    # sont pas déclarés décédés par ailleurs. Le décès est désormais établi par
+    # un statut explicite (notification, statut final, prélèvement,
+    # investigation, sortie du CTE) ou par la date de décès saisie au PCI.
     is_deces = (
         pl.col("nature_alerte").eq("Décès").fill_null(False)
         | pl.col("statut_final_patient").eq("Décédé").fill_null(False)
-        | pl.col("date_deces_final").is_not_null()
         | pl.col("statut_patient_prelevement").eq("Décédé").fill_null(False)
+        | pl.col("etat_patient_investigation").eq("Décès").fill_null(False)
+        | pl.col("modalite_sortie_cte").eq("Décédé(e)").fill_null(False)
         | pl.col("date_deces_pci").is_not_null()
     )
     is_gueri = pl.col("modalite_sortie_cte").eq("Guéri(e)").fill_null(False)  # noqa: RUF001
@@ -624,10 +697,10 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
     lln = lln.with_columns(
         pl.lit(True).alias("is_alerte"),
         is_alerte_valide.alias("is_alerte_valide"),
+        # Un numéro de prélèvement peut être attribué sans qu'un prélèvement ait
+        # eu lieu : seules les dates (prélèvement, réception labo) l'attestent.
         (
-            pl.col("date_prelevement").is_not_null()
-            | pl.col("numero_prelevement").is_not_null()
-            | pl.col("date_reception_labo").is_not_null()
+            pl.col("date_prelevement").is_not_null() | pl.col("date_reception_labo").is_not_null()
         ).alias("is_preleve"),
         pl.col("date_reception_labo").is_not_null().alias("is_recu"),
         pl.col("date_analyse_labo").is_not_null().alias("is_analyse"),
@@ -917,9 +990,7 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     line_list["is_alerte"] = True
     line_list["is_alerte_valide"] = line_list["conclusion_alerte"] == "Validée"
     line_list["is_preleve"] = (
-        line_list["date_prelevement"].notna()
-        | line_list["numero_prelevement"].notna()
-        | line_list["date_reception_labo"].notna()
+        line_list["date_prelevement"].notna() | line_list["date_reception_labo"].notna()
     )
     line_list["is_recu"] = line_list["date_reception_labo"].notna()
     line_list["is_analyse"] = line_list["date_analyse_labo"].notna()

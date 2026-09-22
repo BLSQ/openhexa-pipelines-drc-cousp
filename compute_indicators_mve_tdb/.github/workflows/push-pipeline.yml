@@ -1,0 +1,21 @@
+name: Push pipeline on OpenHEXA
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Commit message
+        required: false
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Push pipeline to OpenHEXA
+        uses: blsq/openhexa-push-pipeline-action@v1.0.0
+        with:
+          token: ${{ secrets.OH_TOKEN }}
+          workspace: "drc-cousp-e26493"
+          pipeline: "compute-indicators-mve-tdb"
