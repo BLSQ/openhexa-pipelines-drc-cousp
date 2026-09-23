@@ -31,9 +31,6 @@ jobs:
 
       - name: Push pipeline to OpenHEXA
         env:
-          # Le message de commit passe par l'environnement : interpolé
-          # directement dans `run`, un message multiligne (merge de PR) ou
-          # contenant une apostrophe casserait la commande shell.
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
