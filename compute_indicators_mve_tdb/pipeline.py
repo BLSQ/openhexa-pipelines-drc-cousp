@@ -21,6 +21,7 @@ from utils import (
     compter_oui,
     files_unchanged_in_version,
     in_dataset_version,
+    last_analytics_update,
     nom_prochaine_version,
     parse_geo,
     tranche_age,
@@ -129,14 +130,19 @@ def compute_indicators_mve_tdb(
     fenetre_max = date.fromisoformat(date_max) if date_max else None
 
     tracker = DHIS2(dhis_con, Path(workspace.files_path) / ".cache")
+    last_analytics_run = last_analytics_update(tracker)
 
     borne_max = fenetre_max.isoformat() if fenetre_max else "aucune"
     current_run.log_info(f"Fenêtre d'analyse sur enrolled_at : {fenetre_min.isoformat()} → {borne_max}.")
+    borne_analytics = (
+        last_analytics_run.isoformat() if last_analytics_run else "aucune (tables jamais générées)"
+    )
+    current_run.log_info(f"Borne analytics sur created_at (exclue) : {borne_analytics}.")
 
     db_url = workspace.database_url
     org_units = get_organisation_units(tracker)
 
-    case_data = build_case_data(org_units, fenetre_min, fenetre_max, db_url)
+    case_data = build_case_data(org_units, fenetre_min, fenetre_max, db_url, last_analytics_run)
     ou_zone_sante = build_org_units(org_units, "zone_sante")
     ou_aire_sante = build_org_units(org_units, "aire_sante")
     ou_provinces = build_org_units(org_units, "province")
@@ -167,6 +173,7 @@ def build_case_data(
     date_min: date,
     date_max: date | None,
     db_url: str,
+    last_analytics_run: datetime | None = None,
 ) -> CaseData:
     """Ingère les événements et construit les deux sorties, en une seule tâche.
 
@@ -181,11 +188,12 @@ def build_case_data(
         date_min: Borne basse incluse sur enrolled_at.
         date_max: Borne haute incluse sur enrolled_at, ou None.
         db_url: URI de connexion à la base du workspace.
+        last_analytics_run: Date de la dernière exécution des analyses, ou None.
 
     Returns:
         Les indicateurs au grain cas, le chemin du parquet LLN et ses métadonnées.
     """
-    events = load_notification_events(db_url, date_min, date_max)
+    events = load_notification_events(db_url, date_min, date_max, last_analytics_run)
     tei = extract_tei_attributes(events)
     enrollments = pivot_enrollments(events, org_units)
     event_dates = build_event_dates(events)
@@ -453,6 +461,7 @@ def load_notification_events(
     db_url: str,
     date_min: date,
     date_max: date | None,
+    last_analytics_run: datetime | None,
     table_name: str = config.EVENTS_TABLE,
 ) -> pl.DataFrame:
     """Charge la table d'événements de notification MVE depuis le workspace.
@@ -461,6 +470,7 @@ def load_notification_events(
         db_url: URI de connexion à la base du workspace.
         date_min: Borne basse incluse sur enrolled_at.
         date_max: Borne haute incluse sur enrolled_at, ou None.
+        last_analytics_run: Date de la dernière exécution des analyses, ou None.
         table_name: Table source (format long du tracker).
 
     Returns:
@@ -488,6 +498,9 @@ def load_notification_events(
     ]
     if date_max is not None:
         conditions.append(f""""enrolled_at" <= DATE '{date_max.isoformat()}'""")
+
+    if last_analytics_run is not None:
+        conditions.append(f""""created_at" < TIMESTAMP '{last_analytics_run.isoformat()}'""")
 
     df = pl.read_database_uri(
         f'SELECT {projection} FROM "public"."{table_name}" WHERE {" AND ".join(conditions)}',

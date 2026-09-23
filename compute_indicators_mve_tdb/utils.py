@@ -1,15 +1,16 @@
 import hashlib
 import re
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 import config
 import pandas as pd
 import polars as pl
-from openhexa.sdk.datasets.dataset import DatasetVersion
 from openhexa.sdk import current_run, workspace
+from openhexa.sdk.datasets.dataset import DatasetVersion
+from openhexa.toolbox.dhis2 import DHIS2
 
 
 def parse_geo(geo_str: object) -> dict[str, str | None]:
@@ -300,3 +301,20 @@ def get_new_dataset_version(ds_id: str, prefix: str = "DS", ds_desc: str = "Data
         return dataset.create_version(version_name)
     except Exception as e:
         raise Exception("An error occurred while creating the new dataset version.") from e
+
+
+def last_analytics_update(dhis2: DHIS2) -> datetime | None:
+    """Date de la dernière génération réussie des tables analytiques DHIS2.
+
+    Args:
+        dhis2: Instance DHIS2 interrogée.
+
+    Returns:
+        L'horodatage de la dernière génération, ou None si les tables
+        analytiques n'ont jamais été générées.
+    """
+    dtime_str = dhis2.meta.system_info().get("lastAnalyticsTableSuccess")
+    if not dtime_str:
+        return None
+    horodatage = datetime.fromisoformat(dtime_str)
+    return horodatage.replace(tzinfo=None)

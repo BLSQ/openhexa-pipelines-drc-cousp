@@ -2,3 +2,4 @@ adbc-driver-postgresql
 connectorx
 psycopg2-binary
 sqlalchemy
+openhexa-toolbox>=2.11.1
