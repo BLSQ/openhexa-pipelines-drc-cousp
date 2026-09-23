@@ -23,8 +23,8 @@ Les 4 tables sont écrites **séquentiellement dans une seule tâche**, et non p
 par 4 tâches concurrentes : voir la note de performance, c'est ce qui évite de
 faire tuer un worker par l'OOM killer (et donc de bloquer le run).
 
-- `build_case_data` : lit `mve_notification_events` (fenêtre et data elements
-  filtrés **en SQL**), pivote au grain enrôlement, extrait les attributs TEI, la
+- `build_case_data` : lit `mve_notification_events` (fenêtre filtrée
+  **en SQL**, tous data elements confondus), pivote au grain enrôlement, extrait les attributs TEI, la
   fenêtre d'événements et le résumé labo, puis produit **deux sorties** — la LLN
   partagée (écrite en parquet) et les indicateurs au grain cas (drapeaux `is_*` :
   suspect, confirmé, décès, guéri…). Toute la chaîne lourde reste dans cette
@@ -179,8 +179,10 @@ ses arguments et son résultat sont **picklés**. D'où deux choix structurants 
 - la LLN circule **par son chemin de fichier**, pas par valeur ; seule la liste
   `indicators` est transmise aux deux branches d'export.
 
-La lecture SQL est filtrée à la source (fenêtre `enrolled_at` + `DE_UTILES`) :
-≈ 50 % de lignes en moins, sans perdre d'enrôlement.
+La lecture SQL n'est filtrée à la source que sur la fenêtre `enrolled_at` et la
+borne `created_at` (dernière génération des analytics). Le filtre sur
+`DE_UTILES` a été retiré : il réduisait d'environ 50 % le volume lu, mais
+faisait perdre des données par rapport à une lecture complète de la table.
 
 ### La géométrie répétée par ligne, et l'OOM qu'elle a provoqué
 
