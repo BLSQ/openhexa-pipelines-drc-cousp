@@ -1,0 +1,44 @@
+name: Push compute_indicators_mve_tdb
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/push_compute_indicators_mve_tdb.yaml"
+      - "compute_indicators_mve_tdb/**"
+      - "!compute_indicators_mve_tdb/docs/**"
+      - "!compute_indicators_mve_tdb/README.md"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Configure OpenHEXA CLI
+        uses: blsq/openhexa-cli-action@v1
+        with:
+          workspace: "drc-cousp-e26493"
+          token: ${{ secrets.OH_TOKEN }}
+
+      - name: Push pipeline to OpenHEXA
+        env:
+          # Le message de commit passe par l'environnement : interpolé
+          # directement dans `run`, un message multiligne (merge de PR) ou
+          # contenant une apostrophe casserait la commande shell.
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          openhexa pipelines push compute_indicators_mve_tdb \
+            --code "compute-indicators-mve-tdb" \
+            --description "${COMMIT_MESSAGE}" \
+            --link "https://github.com/BLSQ/openhexa-pipelines-drc-cousp/commit/${COMMIT_SHA}" \
+            --yes
