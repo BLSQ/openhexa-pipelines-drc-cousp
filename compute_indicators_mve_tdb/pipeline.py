@@ -188,8 +188,7 @@ def build_case_data(
         date_min: Borne basse incluse sur enrolled_at.
         date_max: Borne haute incluse sur enrolled_at, ou None.
         db_url: URI de connexion à la base du workspace.
-        last_analytics_run: Borne haute exclue sur created_at (dernière génération
-            des tables analytiques DHIS2), ou None.
+        last_analytics_run: Date de la dernière exécution des analyses, ou None.
 
     Returns:
         Les indicateurs au grain cas, le chemin du parquet LLN et ses métadonnées.
@@ -471,8 +470,7 @@ def load_notification_events(
         db_url: URI de connexion à la base du workspace.
         date_min: Borne basse incluse sur enrolled_at.
         date_max: Borne haute incluse sur enrolled_at, ou None.
-        last_analytics_run: Borne haute exclue sur created_at (dernière génération
-            des tables analytiques DHIS2), ou None.
+        last_analytics_run: Date de la dernière exécution des analyses, ou None.
         table_name: Table source (format long du tracker).
 
     Returns:
@@ -501,11 +499,6 @@ def load_notification_events(
     if date_max is not None:
         conditions.append(f""""enrolled_at" <= DATE '{date_max.isoformat()}'""")
 
-    # Alignement sur les tables analytiques DHIS2 : on ne retient que les
-    # événements déjà **créés** au moment de leur dernière génération. Le
-    # critère est created_at et non updated_at : un événement créé avant mais
-    # modifié depuis figure bien dans les analytics (avec sa valeur d'alors),
-    # le filtrer sur updated_at le ferait disparaître et sous-compterait.
     if last_analytics_run is not None:
         conditions.append(f""""created_at" < TIMESTAMP '{last_analytics_run.isoformat()}'""")
 

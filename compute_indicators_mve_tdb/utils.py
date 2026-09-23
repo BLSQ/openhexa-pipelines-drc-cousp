@@ -317,7 +317,4 @@ def last_analytics_update(dhis2: DHIS2) -> datetime | None:
     if not dtime_str:
         return None
     horodatage = datetime.fromisoformat(dtime_str)
-    # created_at est stocké en heure serveur DHIS2, sans fuseau : on retire un
-    # éventuel offset au lieu de le convertir, sinon la comparaison SQL
-    # (TIMESTAMP sans fuseau) décalerait la borne de plusieurs heures.
     return horodatage.replace(tzinfo=None)
