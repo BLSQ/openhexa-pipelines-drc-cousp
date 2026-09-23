@@ -491,9 +491,9 @@ def load_notification_events(
         *config.DICO_TEI,
     ]
     projection = ", ".join(f'"{colonne}"' for colonne in colonnes)
-    data_elements = ", ".join(f"'{de}'" for de in config.DE_UTILES)
+    # data_elements = ", ".join(f"'{de}'" for de in config.DE_UTILES)
     conditions = [
-        f'"data_element_id" IN ({data_elements})',
+        # f'"data_element_id" IN ({data_elements})',
         f""""enrolled_at" >= DATE '{date_min.isoformat()}'""",
     ]
     if date_max is not None:
