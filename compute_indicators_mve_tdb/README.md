@@ -95,6 +95,16 @@ Conventions du fichier :
   coordonnées GPS du domicile (`gps_domicile`) → partage restreint aux personnes
   habilitées.
 
+Champs ajoutés pour la classification des cas (note « Circuit du patient et
+classification des cas ») : lien épidémiologique (`contact_connu`,
+`contact_suivi`, `ma1/ma2/ma3_cas_ebola`, `participation_funerailles`,
+`pf1/pf2_cas_ebola`), décès et confirmation (`date_deces_investigation`,
+`date_confirmation_s6`), mobilisation sociale (`mobilisation_sociale_prevenue`),
+issue et prélèvement PCI (`issue_cas_pci`, `date_deces_issue_pci`,
+`date_sortie_pci`, `prelevement_effectue_pci`, `date_prelevement_pci`,
+`resultat_prelevement_pci`). Données brutes uniquement ; aucun indicateur dérivé
+ni table Superset modifiés.
+
 ### Drapeaux `is_*` et date de décès reconstruite
 
 En fin de schéma (`config.COLS_LLN_FLAGS`), `compute_lln_flags` ajoute les mêmes
