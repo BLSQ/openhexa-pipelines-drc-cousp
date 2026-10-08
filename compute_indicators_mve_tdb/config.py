@@ -436,6 +436,7 @@ DATASET_LLN_MAPPING = {
     "rrFePJwactM": "commission_pec_prevenue",  # MVE-N Commission PEC prévenue
     "jHaeHsB6JbW": "classification_initiale",  # MVE - N - Cas suspect
     "ZBhXK4z0Iax": "date_deces_notification",  # MVE- N - Date de décès
+    "PBCSQlnClse": "mobilisation_sociale_prevenue",  # MVE-N Mobilisation sociale prévenue
     # Stage 2 · Investigation FHV (fqrtWpCo7za)
     "mMGawAScUbp": "gps_domicile",  # S1 -  Coordonnées GPS de la maison
     "o7NC9z4JAts": "etat_patient_investigation",  # S1 -  Etat du patient au moment de la collecte d'information
@@ -473,6 +474,16 @@ DATASET_LLN_MAPPING = {
     "PydxMCR9fV6": "contact_animal",  # 177 - MVE - S4 - 6. Le patient a-t-il eu un contact direct (chasse, touché, mangé) avec des animaux ou de la viande crue avant de tomber malade?
     "fq5cNcnKcy9": "contact_chauve_souris",  # 177 - MVE - S4 - 6.1 Chauve-souris (ou excrétions de)
     "alu85ZZRCZE": "contact_singes",  # 177 - MVE - S4 - 6.2 Singes
+    # Lien épidémiologique (classification : cas probable, lien épi avéré)
+    "LBfeec0JRWz": "contact_connu",  # MVE - S1 - Le malade était-il un contact connu ?
+    "IAQSNPOQyRI": "contact_suivi",  # MVE - S1 - Le malade était-il un contact suivi ?
+    "zRjqyRtZ1wP": "ma1_cas_ebola",  # 127b - MVE - S4 - MA-1 - Cas Ebola ?
+    "AbaLtX2ZAV7": "ma2_cas_ebola",  # 127b - MVE - S4 - MA-2 - Cas Ebola ?
+    "gffeaEUBiMv": "ma3_cas_ebola",  # 127b - MVE - S4 - MA-3 - Cas Ebola ?
+    "B0ICPgpSNES": "participation_funerailles",  # 134 - MVE - S4 - 2. Est-ce-que le patient a participé à des funérailles avant la maladie actuelle?
+    "BGqme695oSW": "pf1_cas_ebola",  # 136a - MVE - S4 - PF-1 - Cas Ebola ?
+    "DmLuwIU0gWh": "pf2_cas_ebola",  # 143a - MVE - S4 - PF-2 - Cas Ebola ?
+    "RQndDp1K3oo": "date_deces_investigation",  # S1 -  Si décédé, Date du Décès
     # Stage 3 · Prélèvements biologiques (GO2aLxqhDIS)
     "lj0Zv0vbUN5": "numero_prelevement",  # MVE - N° Prélèvement
     "aC7D1VntfwF": "prelevement_soumis",  # 182 - MVE - S5 - Est-ce qu’un prélèvement a déjà été soumis pour ce malade?  # noqa: RUF003
@@ -505,6 +516,8 @@ DATASET_LLN_MAPPING = {
     "fpw6gIG7Nhq": "funerailles_organisees_par",  # 215 - MVE - S6 - Funérailles organisées par
     "LE2eGGkAy2F": "lieu_funerailles",  # 216 - MVE - S6 - Lieu des funérailles/enterrement
     "NympO1c3msQ": "zone_sante_funerailles",  # 218 - MVE - S6 - FE - Zone de Santé
+    # NB : nom distinct de « date_confirmation » (résumé labo, COLS_LLN_LABO)
+    "L1jSKwWq5uI": "date_confirmation_s6",  # 198 - MVE - S6 - Date de confirmation
     # Stage 6 · Prise en charge (rMvKKqab4bW)
     "Xy5J5MGpaZ7": "date_sortie_cte",  # MVE - PEC - Date de sortie
     "KGsTJ4jV7Fb": "date_admission_cte",  # MVE - PEC - Date d’admission  # noqa: RUF003
@@ -530,6 +543,14 @@ DATASET_LLN_MAPPING = {
     "jxdmebLuEKC": "date_eds_pci",  # MVE - PCI11 - Date EDS
     "WTtRj0ODuBE": "swab_realise_pci",  # MVE - PCI10 - Swab realise
     "b6Pf3aEdtpP": "date_swab_pci",  # MVE - PCI11 - Date Swab
+    # Issue du cas et prélèvement saisis au PCI. NB : noms distincts de
+    # « date_deces_pci » (PCI9) et « date_prelevement » (S5)
+    "wYVzBgj36yr": "issue_cas_pci",  # MVE - PCI-042 - Issue du cas
+    "G3022e2HtM5": "date_deces_issue_pci",  # MVE - PCI-043 - Date de décès
+    "R92bFQmXKFR": "date_sortie_pci",  # MVE - PCI-044 - Date de sortie
+    "yjFH8eYDNJx": "prelevement_effectue_pci",  # MVE - PCI-037 - Prélèvement effectué
+    "Kqp7H4tBpX4": "date_prelevement_pci",  # MVE - PCI-039 - Date du prélèvement
+    "xlFIopJLb9N": "resultat_prelevement_pci",  # MVE - PCI-040 - Résultat du prélèvement
     # Stage 8 · Localisation du cas confirmé (U7LGPqXkVg6)
     "B06dikdGoC5": "gps_cas_confirme",  # MVE - Coordonnées géographiques — Cas confirmé
 }
