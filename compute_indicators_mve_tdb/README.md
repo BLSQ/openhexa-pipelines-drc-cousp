@@ -8,11 +8,12 @@ de notification du tracker DHIS2.
 
 ```
 get_organisation_units ──┬─> build_case_data ───────────────┐
-   (métadonnées DHIS2)    ├─> build_org_units("zone_sante") ─┤
+   (métadonnées DHIS2)    ├─> build_contacts_data ───────────┤
+                          ├─> build_org_units("zone_sante") ─┤
                           └─> build_org_units("province") ───┤
                                                              ▼
             export_tables      ┐  4 tables, séquentiellement
-            export_to_dataset  ┘  LLN → dataset
+            export_to_dataset  ┘  LLN notifications + contacts → dataset
 ```
 
 Le pipeline est un **DAG OpenHexa** : `build_case_data` et les deux
@@ -31,14 +32,22 @@ faire tuer un worker par l'OOM killer (et donc de bloquer le run).
   tâche unique : les tâches OpenHexa tournant dans des process séparés, faire
   circuler la table d'événements entre tâches coûte ~450 Mo de sérialisation par
   passage.
+- `build_contacts_data` : lit `mve_contacts_events` (programme « Fiche
+  d'identification et suivi individuel des contacts », **extraction complète,
+  sans fenêtre de dates**, restreinte aux 11 data elements de `config.DICO_DE_MAPPING_CONTACTS`), pivote au **grain
+  event** (un suivi journalier par ligne : le programme n'a qu'un stage), joint les
+  attributs TEI du contact (lus à part, une ligne par TEI via `DISTINCT ON`),
+  écrit la table `COD_MVE_Tracker_Contacts` puis la LLN contacts en parquet. Tâche indépendante et légère : elle tourne en
+  parallèle de `build_case_data`.
 - `export_tables` : pour chaque axe temporel, agrège par (date, zone de santé,
   province, sexe, tranche d'âge) et écrit la table de staging ; puis publie la
   liste de ligne au grain cas (délais bornés, statut vital, variables labo / Ct).
   Chaque table est relue après écriture (`verifier_export`) pour comparer
   volumétrie et cardinalités à la source.
-- `export_to_dataset` : publie la LLN dans une version du dataset OpenHexa,
-  **uniquement si son contenu a changé** (empreinte SHA-256), accompagnée d'un
-  JSON de métadonnées (fenêtre couverte, volumétrie, taux de remplissage par
+- `export_to_dataset` : publie les deux LLN (notifications et contacts) dans
+  **une même version** du dataset OpenHexa, **uniquement si le contenu d'un des
+  parquets a changé** (empreinte SHA-256), chacune accompagnée d'un JSON de
+  métadonnées (fenêtre couverte, volumétrie, taux de remplissage par
   colonne, mention de confidentialité).
 
 ## Paramètres
@@ -65,6 +74,7 @@ comme sorties du run (`add_database_output`).
 | `COD_MVE_Tracker_DDS_Agg` | agrégat | `date_debut_symptomes` |
 | `COD_MVE_Tracker_Deces` | agrégat | `date_deces` (décès uniquement) |
 | `COD_MVE_Tracker_Individu` | cas | liste de ligne nominative (`config.LLN_COLS`) |
+| `COD_MVE_Tracker_Contacts` | suivi journalier | liste linéaire du suivi des contacts (`config.DATASET_LLN_CONTACTS_COLS`) |
 
 ## Dataset produit — LLN partagée
 
@@ -74,6 +84,12 @@ Publiée dans le dataset `lln_dataset` sous des **noms de fichiers stables** :
 |---|---|
 | `lln_mve_notifications.parquet` | LLN, **un enrôlement par ligne**, schéma `config.DATASET_LLN_COLS` |
 | `lln_mve_notifications_metadata.json` | fenêtre couverte, volumétrie, taux de remplissage par colonne, colonnes vides, mention de confidentialité |
+| `lln_mve_contacts.parquet` | LLN du suivi des contacts, **un suivi journalier (event) par ligne**, schéma `config.DATASET_LLN_CONTACTS_COLS` (sans nom ni téléphone du contact), extraction complète sans fenêtre de dates |
+| `lln_mve_contacts_metadata.json` | mêmes métadonnées, pour la LLN contacts |
+
+Une version de dataset OpenHexa ne contient que les fichiers qui y sont déposés :
+les quatre fichiers sont donc toujours publiés ensemble, chaque version reste
+complète.
 
 Le workspace consommateur peut donc écrire
 `dataset.latest_version.get_file("lln_mve_notifications.parquet")` sans deviner
@@ -139,6 +155,29 @@ Aucun de ces noms ne recouvre une colonne déjà publiée plus haut dans le
 fichier : un garde-fou dans `config.py` fait échouer le chargement du module si
 un doublon de nom apparaissait un jour entre les blocs du schéma.
 
+## Structure du code
+
+`pipeline.py` ne contient que la déclaration du pipeline, ses paramètres et ses
+tâches (orchestration) ; la logique métier est répartie par responsabilité :
+
+| Module | Contenu |
+|---|---|
+| `pipeline.py` | `@pipeline`, paramètres, tâches OpenHexa, `tache_robuste` |
+| `extraction/notifications.py` | lecture SQL de `mve_notification_events`, pivot au grain enrôlement, attributs TEI, fenêtre d'événements, résumé labo |
+| `extraction/contacts.py` | lecture SQL de `mve_contacts_events` (événements + attributs TEI) |
+| `lln/commun.py` | géographie canonisée (`joindre_geographie`), schéma publié, écriture parquet, métadonnées JSON |
+| `lln/notifications.py` | LLN notifications et drapeaux `is_*` |
+| `lln/contacts.py` | LLN du suivi des contacts |
+| `indicateurs/cas.py` | indicateurs au grain cas, date de décès reconstruite, liste de ligne `COD_MVE_Tracker_Individu` |
+| `indicateurs/agregats.py` | agrégats par axe temporel (dont `date_rapportage`) |
+| `geo.py` | unités d'organisation par niveau (géométries) et référentiel géographique |
+| `export/base_de_donnees.py` | écriture ADBC (repli SQLAlchemy) et contrôle post-écriture |
+| `export/dataset.py` | publication des fichiers dans les datasets OpenHexa |
+| `config.py` / `utils.py` | constantes et mappings / helpers transverses |
+
+Ajouter une nouvelle source suit le même schéma : un module dans `extraction/`,
+un module dans `lln/` (ou `indicateurs/`), puis une tâche dans `pipeline.py`.
+
 ## Configuration
 
 Les nappes (`AXES_EXPORT`, `LLN_TABLE`), la table source (`EVENTS_TABLE`), le
@@ -173,7 +212,8 @@ contenu change), avec la fenêtre couverte inchangée.
 ## Exécution
 
 OpenHexa exécute le pipeline depuis ce dossier (ajouté au `sys.path`, d'où les
-imports « bare » `import config`, `from utils import …`). L'accès à la base
+imports « bare » `import config`, `from utils import …`, `from lln.contacts
+import …`). L'accès à la base
 (`workspace.database_url`) et aux métadonnées DHIS2 n'est disponible que sur le
 workspace : le pipeline n'est **pas exécutable en local**. Dépendances runtime
 dans `requirements.txt` (dont `adbc-driver-postgresql`).
