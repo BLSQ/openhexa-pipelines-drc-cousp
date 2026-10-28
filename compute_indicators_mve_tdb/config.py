@@ -145,7 +145,7 @@ DICO_DE_MAPPING_CONTACTS = {
     "RLo66HizupL": "dernier_jour_de_suivi",  # MVE - Dernier jour de suivi ?
     "a9PXWLKqQQG": "contact_vu",  # 008 MVE-FS- Contact a été vu?
     "L0lvdD4XWzk": "a_des_symptomes",  # 008 MVE-FS- Symptômes?
-    "K9McVlOuryB": "coordonnes_geo",  # MVE - Coordonnées géo
+    # "K9McVlOuryB": "coordonnes_geo",  # MVE - Coordonnées géo
     "HLR2jTQTUJN": "contact_non_vu_raisons",  # 009 MVE-FS- Contact non vu - Raisons
     "hDb8XXjuyzZ": "symptomes",  # MVE - FS - Symptômes
     "HeM3XSBCGlD": "temperature",  # 001 MVE-FS-Température
@@ -610,8 +610,8 @@ LLN_CONTACTS_FILE = "lln_mve_contacts.parquet"
 LLN_CONTACTS_META = "lln_mve_contacts_metadata.json"
 
 # Schéma publié de la LLN des contacts (grain : un suivi journalier par ligne).
-# Le nom et le téléphone du contact (EXPR_TEI_CONTACTS) ne sont volontairement
-# pas publiés.
+# Le nom et le téléphone du contact (EXPR_TEI_CONTACTS) ainsi que ses
+# coordonnées géographiques (K9McVlOuryB) ne sont volontairement pas publiés.
 DATASET_LLN_CONTACTS_COLS = [
     # Clés, unité d'organisation et géographie canonisée
     "event_id",
@@ -633,7 +633,7 @@ DATASET_LLN_CONTACTS_COLS = [
     "dernier_jour_de_suivi",
     "contact_vu",
     "a_des_symptomes",
-    "coordonnes_geo",
+    # "coordonnes_geo",
     "contact_non_vu_raisons",
     "symptomes",
     "temperature",
