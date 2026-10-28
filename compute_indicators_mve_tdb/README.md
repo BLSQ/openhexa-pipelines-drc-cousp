@@ -34,7 +34,7 @@ faire tuer un worker par l'OOM killer (et donc de bloquer le run).
   passage.
 - `build_contacts_data` : lit `mve_contacts_events` (programme « Fiche
   d'identification et suivi individuel des contacts », **extraction complète,
-  sans fenêtre de dates**, restreinte aux 11 data elements de `config.DICO_DE_MAPPING_CONTACTS`), pivote au **grain
+  sans fenêtre de dates**, restreinte aux 10 data elements de `config.DICO_DE_MAPPING_CONTACTS`), pivote au **grain
   event** (un suivi journalier par ligne : le programme n'a qu'un stage), joint les
   attributs TEI du contact (lus à part, une ligne par TEI via `DISTINCT ON`),
   écrit la table `COD_MVE_Tracker_Contacts` puis la LLN contacts en parquet. Tâche indépendante et légère : elle tourne en
@@ -84,7 +84,7 @@ Publiée dans le dataset `lln_dataset` sous des **noms de fichiers stables** :
 |---|---|
 | `lln_mve_notifications.parquet` | LLN, **un enrôlement par ligne**, schéma `config.DATASET_LLN_COLS` |
 | `lln_mve_notifications_metadata.json` | fenêtre couverte, volumétrie, taux de remplissage par colonne, colonnes vides, mention de confidentialité |
-| `lln_mve_contacts.parquet` | LLN du suivi des contacts, **un suivi journalier (event) par ligne**, schéma `config.DATASET_LLN_CONTACTS_COLS` (sans nom ni téléphone du contact), extraction complète sans fenêtre de dates |
+| `lln_mve_contacts.parquet` | LLN du suivi des contacts, **un suivi journalier (event) par ligne**, schéma `config.DATASET_LLN_CONTACTS_COLS` (sans nom, téléphone ni coordonnées géographiques du contact), extraction complète sans fenêtre de dates |
 | `lln_mve_contacts_metadata.json` | mêmes métadonnées, pour la LLN contacts |
 
 Une version de dataset OpenHexa ne contient que les fichiers qui y sont déposés :

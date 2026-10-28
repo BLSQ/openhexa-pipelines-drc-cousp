@@ -238,9 +238,9 @@ def build_contacts_data(org_units: pl.DataFrame, db_url: str) -> CaseData:
         grain="un suivi journalier de contact (event_id) par ligne",
         confidentialite=(
             "Liste linéaire nominative des contacts. Contient des quasi-identifiants "
-            "(identifiant contact, numéro Epid du cas source, âge, sexe, village) et "
-            "des coordonnées GPS : diffusion restreinte aux personnes habilitées. "
-            "Nom et téléphone du contact non publiés."
+            "(identifiant contact, numéro Epid du cas source, âge, sexe, village) : "
+            "diffusion restreinte aux personnes habilitées. Nom, téléphone et "
+            "coordonnées géographiques du contact non publiés."
         ),
     )
     return {
