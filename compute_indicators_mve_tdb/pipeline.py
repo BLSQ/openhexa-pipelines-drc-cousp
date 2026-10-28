@@ -20,7 +20,6 @@ from utils import (
     canoniser_geo_expr,
     compter_oui,
     files_unchanged_in_version,
-    in_dataset_version,
     last_analytics_update,
     nom_prochaine_version,
     parse_geo,
@@ -86,7 +85,7 @@ FLAG_SOURCE_DTYPES: dict[str, pl.DataType] = {
     "date_notification": pl.Datetime,
     "date_deces_notification": pl.Date,
     "classification_finale_cas": pl.String,
-}
+}  # type: ignore
 
 
 @pipeline("compute_indicators_mve_tdb")
@@ -133,7 +132,9 @@ def compute_indicators_mve_tdb(
     last_analytics_run = last_analytics_update(tracker)
 
     borne_max = fenetre_max.isoformat() if fenetre_max else "aucune"
-    current_run.log_info(f"Fenêtre d'analyse sur enrolled_at : {fenetre_min.isoformat()} → {borne_max}.")
+    current_run.log_info(
+        f"Fenêtre d'analyse sur enrolled_at : {fenetre_min.isoformat()} → {borne_max}."
+    )
     borne_analytics = (
         last_analytics_run.isoformat() if last_analytics_run else "aucune (tables jamais générées)"
     )
@@ -143,13 +144,14 @@ def compute_indicators_mve_tdb(
     org_units = get_organisation_units(tracker)
 
     case_data = build_case_data(org_units, fenetre_min, fenetre_max, db_url, last_analytics_run)
+    contacts_data = build_contacts_data(org_units, db_url)
     ou_zone_sante = build_org_units(org_units, "zone_sante")
     ou_aire_sante = build_org_units(org_units, "aire_sante")
     ou_provinces = build_org_units(org_units, "province")
 
     export_tables(case_data, ou_zone_sante, ou_aire_sante, ou_provinces, db_url)
 
-    export_to_dataset(case_data, lln_dataset)
+    export_to_dataset(case_data, contacts_data, lln_dataset)
 
 
 @compute_indicators_mve_tdb.task
@@ -212,8 +214,54 @@ def build_case_data(
     return {
         "indicators": indicators,
         "lln_path": str(lln_path),
+        "lln_meta_file": config.LLN_DATASET_META,
         "lln_metadata": metadata,
         "horodatage": horodatage.strftime("%Y%m%d-%H%M"),
+    }
+
+
+@compute_indicators_mve_tdb.task
+@tache_robuste
+def build_contacts_data(org_units: pl.DataFrame, db_url: str) -> CaseData:
+    """Construit et publie la LLN du suivi des contacts (programme tracker distinct).
+
+    Indépendante de build_case_data() (autre table source, extraite sans
+    fenêtre de dates) : elle tourne dans sa propre tâche, écrit la table
+    config.CONTACTS_TABLE et ne renvoie que le chemin du parquet et ses
+    métadonnées.
+
+    Args:
+        org_units: Unités d'organisation (jointure géographique).
+        db_url: URI de connexion à la base du workspace.
+
+    Returns:
+        Le chemin du parquet LLN contacts et ses métadonnées.
+    """
+    events, tei = load_contacts_events(db_url)
+    lln = build_contacts_line_list(events, tei, org_units)
+    export_to_database(lln, config.CONTACTS_TABLE, db_url)
+    lln_path = write_lln_parquet(lln, config.LLN_CONTACTS_FILE)
+    metadata = build_lln_metadata(
+        lln,
+        None,
+        None,
+        datetime.now(UTC),
+        source=(
+            f"public.{config.CONTACTS_EVENTS_TABLE} "
+            "(événements du tracker de suivi des contacts MVE, format long)"
+        ),
+        grain="un suivi journalier de contact (event_id) par ligne",
+        confidentialite=(
+            "Liste linéaire nominative des contacts. Contient des quasi-identifiants "
+            "(identifiant contact, numéro Epid du cas source, âge, sexe, village) et "
+            "des coordonnées GPS : diffusion restreinte aux personnes habilitées. "
+            "Nom et téléphone du contact non publiés."
+        ),
+    )
+    return {
+        "lln_path": str(lln_path),
+        "lln_meta_file": config.LLN_CONTACTS_META,
+        "lln_metadata": metadata,
     }
 
 
@@ -249,7 +297,9 @@ def export_tables(
     for colonne_date, table_name in config.AXES_EXPORT:
         agg = aggregate_indicators(indicators, ou_zone_sante, ou_provinces, colonne_date)  # type: ignore
         export_to_database(agg, table_name, db_url)
-        file_paths.extend(save_data_for_dataset(agg, table_name, Path("/home/jovyan/tmp/mve_tracker_tables")))
+        file_paths.extend(
+            save_data_for_dataset(agg, table_name, Path("/home/jovyan/tmp/mve_tracker_tables"))
+        )
         del agg
 
     individu = build_line_list_individu(indicators, ou_zone_sante, ou_provinces)  # type: ignore
@@ -258,7 +308,9 @@ def export_tables(
     geo_referentiel = build_geo_referentiel(ou_aire_sante)
     file_paths.extend(
         save_data_for_dataset(
-            geo_referentiel, config.GEO_REFERENTIEL_TABLE, Path("/home/jovyan/tmp/mve_tracker_tables")
+            geo_referentiel,
+            config.GEO_REFERENTIEL_TABLE,
+            Path("/home/jovyan/tmp/mve_tracker_tables"),
         )
     )
 
@@ -306,7 +358,9 @@ def publish_data_to_dataset(file_paths: list[Path], dataset_id: str) -> None:
         return
 
     try:
-        add_files_to_dataset(dataset_id=dataset_id, file_paths=file_paths, ds_version_prefix="MVE_TRACKER")
+        add_files_to_dataset(
+            dataset_id=dataset_id, file_paths=file_paths, ds_version_prefix="MVE_TRACKER"
+        )
     finally:
         for file in file_paths:
             file.unlink(missing_ok=True)
@@ -360,7 +414,9 @@ def build_org_units(
 
     base = org_units.filter(filtre).with_columns(
         pl.concat_str(cols_geo, separator=" / ").alias("geo_hierarchie"),
-        pl.col("geometry").map_elements(_anneau_exterieur, return_dtype=pl.Object).alias("coordinates"),
+        pl.col("geometry")
+        .map_elements(_anneau_exterieur, return_dtype=pl.Object)
+        .alias("coordinates"),
     )
     prepared = base.with_columns(
         pl.col("coordinates").map_elements(json.dumps, return_dtype=pl.Utf8).alias("coordinates")
@@ -401,59 +457,76 @@ def build_geo_referentiel(ou_aire_sante: pl.DataFrame) -> pd.DataFrame:
 
 @compute_indicators_mve_tdb.task
 @tache_robuste
-def export_to_dataset(case_data: CaseData, dataset: Dataset | None) -> None:
-    """Publie la LLN (parquet + métadonnées) dans une version du dataset.
+def export_to_dataset(
+    case_data: CaseData,
+    contacts_data: CaseData,
+    dataset: Dataset | None,
+) -> None:
+    """Publie les LLN (notifications et contacts) dans une même version du dataset.
+
+    Une version de dataset OpenHexa ne contient que les fichiers qu'on y
+    dépose : les deux LLN et leurs métadonnées sont donc toujours publiées
+    ensemble, pour que chaque version reste complète.
 
     Args:
         case_data: Charge utile issue de build_case_data().
+        contacts_data: Charge utile issue de build_contacts_data().
         dataset: Dataset cible, ou None pour ne rien publier.
     """
-    chemin = Path(str(case_data["lln_path"]))
+    chemins = [Path(str(charge["lln_path"])) for charge in (case_data, contacts_data)]
     if dataset is None:
-        current_run.log_info(f"Aucun dataset cible : LLN laissée dans « {chemin} ».")
+        current_run.log_info(
+            f"Aucun dataset cible : LLN laissées dans « {', '.join(map(str, chemins))} »."
+        )
         return
 
-    chemin_meta = chemin.with_name(config.LLN_DATASET_META)
-    chemin_meta.write_text(
-        json.dumps(case_data["lln_metadata"], indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    chemins_meta = []
+    for chemin, charge in zip(chemins, (case_data, contacts_data), strict=True):
+        chemin_meta = chemin.with_name(str(charge["lln_meta_file"]))
+        chemin_meta.write_text(
+            json.dumps(charge["lln_metadata"], indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        chemins_meta.append(chemin_meta)
 
     try:
-        publier_version(dataset, chemin, chemin_meta, str(case_data["horodatage"]))
+        publier_version(dataset, chemins, chemins_meta, str(case_data["horodatage"]))
     finally:
-        chemin.unlink(missing_ok=True)
-        chemin_meta.unlink(missing_ok=True)
+        for chemin in (*chemins, *chemins_meta):
+            chemin.unlink(missing_ok=True)
 
 
 def publier_version(
     dataset: Dataset,
-    chemin: Path,
-    chemin_meta: Path,
+    chemins: list[Path],
+    chemins_meta: list[Path],
     horodatage: str,
 ) -> None:
-    """Crée une version du dataset et y dépose la LLN, si le contenu a changé.
+    """Crée une version du dataset et y dépose les LLN, si leur contenu a changé.
+
+    Seuls les parquets entrent dans la comparaison : les métadonnées portent
+    l'horodatage de génération et changeraient à chaque exécution.
 
     Args:
         dataset: Dataset cible.
-        chemin: Parquet de la LLN.
-        chemin_meta: JSON de métadonnées accompagnant la LLN.
+        chemins: Parquets des LLN.
+        chemins_meta: JSON de métadonnées accompagnant les LLN.
         horodatage: Horodatage de repli pour le nom de version.
     """
     derniere = dataset.latest_version
-    if derniere is not None and in_dataset_version(chemin, derniere):
+    if derniere is not None and files_unchanged_in_version(chemins, derniere):
         current_run.log_info(
-            f"LLN inchangée depuis la version « {derniere.name} » du dataset "
+            f"LLN inchangées depuis la version « {derniere.name} » du dataset "
             f"« {dataset.name} » : aucune nouvelle version créée."
         )
         return
 
     version = dataset.create_version(nom_prochaine_version(derniere, horodatage))
-    version.add_file(chemin, chemin.name)
-    version.add_file(chemin_meta, chemin_meta.name)
+    for chemin in (*chemins, *chemins_meta):
+        version.add_file(chemin, chemin.name)
     current_run.log_info(
-        f"LLN publiée dans le dataset « {dataset.name} », version « {version.name} » "
-        f"({chemin.name} + {chemin_meta.name})."
+        f"LLN publiées dans le dataset « {dataset.name} », version « {version.name} » "
+        f"({', '.join(c.name for c in (*chemins, *chemins_meta))})."
     )
 
 
@@ -492,15 +565,8 @@ def load_notification_events(
     ]
     projection = ", ".join(f'"{colonne}"' for colonne in colonnes)
     # data_elements = ", ".join(f"'{de}'" for de in config.DE_UTILES)
-    conditions = [
-        # f'"data_element_id" IN ({data_elements})',
-        f""""enrolled_at" >= DATE '{date_min.isoformat()}'""",
-    ]
-    if date_max is not None:
-        conditions.append(f""""enrolled_at" <= DATE '{date_max.isoformat()}'""")
-
-    if last_analytics_run is not None:
-        conditions.append(f""""created_at" < TIMESTAMP '{last_analytics_run.isoformat()}'""")
+    # f'"data_element_id" IN ({data_elements})',
+    conditions = conditions_fenetre(date_min, date_max, last_analytics_run)
 
     df = pl.read_database_uri(
         f'SELECT {projection} FROM "public"."{table_name}" WHERE {" AND ".join(conditions)}',
@@ -529,6 +595,91 @@ def load_notification_events(
     return df
 
 
+def conditions_fenetre(
+    date_min: date,
+    date_max: date | None,
+    last_analytics_run: datetime | None,
+) -> list[str]:
+    """Conditions SQL de la fenêtre d'analyse (enrolled_at, borne analytics).
+
+    Returns:
+        Les conditions à combiner par AND dans la clause WHERE.
+    """
+    conditions = [f""""enrolled_at" >= DATE '{date_min.isoformat()}'"""]
+    if date_max is not None:
+        conditions.append(f""""enrolled_at" <= DATE '{date_max.isoformat()}'""")
+    if last_analytics_run is not None:
+        conditions.append(f""""created_at" < TIMESTAMP '{last_analytics_run.isoformat()}'""")
+    return conditions
+
+
+def load_contacts_events(
+    db_url: str,
+    table_name: str = config.CONTACTS_EVENTS_TABLE,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Charge les événements de suivi des contacts et les attributs TEI.
+
+    Extraction complète de la table, sans fenêtre de dates. Deux lectures
+    distinctes : les événements (restreints aux data elements de
+    config.DICO_DE_MAPPING_CONTACTS) sans les attributs TEI, répétés sinon sur
+    chaque ligne du format long, puis une ligne d'attributs par entité suivie
+    (la plus récemment mise à jour). Les événements et enrôlements supprimés
+    (soft delete) sont exclus, un drapeau nul excluant aussi la ligne, comme
+    dans load_notification_events().
+
+    Args:
+        db_url: URI de connexion à la base du workspace.
+        table_name: Table source (format long du tracker de suivi des contacts).
+
+    Returns:
+        Les événements bruts (grain événement x data element) et les attributs TEI.
+    """
+    data_elements = ", ".join(f"'{de}'" for de in config.DICO_DE_MAPPING_CONTACTS)
+
+    colonnes = [
+        "event_id",
+        "deleted",
+        "tracked_entity_id",
+        "enrollment_id",
+        "enrollment_org_unit",
+        "enrollment_deleted",
+        "enrolled_at",
+        "occurred_at",
+        "created_at",
+        "data_element_id",
+        "value_norm",
+    ]
+    projection = ", ".join(f'"{colonne}"' for colonne in colonnes)
+    events = pl.read_database_uri(
+        f'SELECT {projection} FROM "public"."{table_name}" '
+        f'WHERE "data_element_id" IN ({data_elements})',
+        uri=db_url,
+    ).with_columns(
+        pl.col("enrolled_at").cast(pl.Date, strict=False),
+        pl.col("occurred_at").cast(pl.Date, strict=False),
+    )
+    current_run.log_info(f"Événements de suivi des contacts lus : {events.height} lignes brutes.")
+    events = events.filter((~pl.col("enrollment_deleted")) & (~pl.col("deleted"))).drop(
+        ["enrollment_deleted", "deleted"]
+    )
+    current_run.log_info(
+        f"Événements de suivi des contacts retenus : {events.height} lignes, après exclusion "
+        "des enrôlements et événements supprimés."
+    )
+    attributs = sorted(
+        {nom for expr in config.EXPR_TEI_CONTACTS for nom in expr.meta.root_names()}
+    )
+    projection_tei = ", ".join(f'"{attribut}"' for attribut in attributs)
+    tei = pl.read_database_uri(
+        f'SELECT DISTINCT ON ("tracked_entity_id") {projection_tei} '
+        f'FROM "public"."{table_name}" '
+        'ORDER BY "tracked_entity_id", "updated_at_tei" DESC NULLS LAST, "created_at" DESC',
+        uri=db_url,
+    ).select(config.EXPR_TEI_CONTACTS)
+    current_run.log_info(f"Attributs TEI des contacts extraits : {tei.height} entités suivies.")
+    return events, tei
+
+
 def pivot_enrollments(events: pl.DataFrame, org_units: pl.DataFrame) -> pl.DataFrame:
     """Pivote les événements tracker au grain ENROLLMENT (une ligne par enrôlement).
 
@@ -544,7 +695,7 @@ def pivot_enrollments(events: pl.DataFrame, org_units: pl.DataFrame) -> pl.DataF
         .sort_by(["occurred_at", "created_at", "event_id"], nulls_last=True)
         .last()
     )
-    valeurs = events.sort(  # noqa: PD010
+    valeurs = events.sort(  # ruff: ignore[pandas-use-of-dot-pivot-or-unstack]
         ["tracked_entity_id", "enrollment_id", "occurred_at", "created_at", "event_id"],
         nulls_last=True,
     ).pivot(
@@ -555,9 +706,9 @@ def pivot_enrollments(events: pl.DataFrame, org_units: pl.DataFrame) -> pl.DataF
     )
     enrollments = contexte.join(valeurs, on="enrollment_id", how="left")
     enrollments = enrollments.join(
-        org_units.select(["id", "level_1_name", "level_2_name", "level_3_name", "level_4_name"]).rename(
-            {"id": "enrollment_org_unit"}
-        ),
+        org_units.select(
+            ["id", "level_1_name", "level_2_name", "level_3_name", "level_4_name"]
+        ).rename({"id": "enrollment_org_unit"}),
         on="enrollment_org_unit",
         how="left",
     )
@@ -574,7 +725,11 @@ def extract_tei_attributes(
     Returns:
         Les attributs TEI dédoublonnés (dernière occurrence par tracked_entity_id).
     """
-    tei = events.select(colonnes).sort("tracked_entity_id").unique(subset=["tracked_entity_id"], keep="last")
+    tei = (
+        events.select(colonnes)
+        .sort("tracked_entity_id")
+        .unique(subset=["tracked_entity_id"], keep="last")
+    )
     current_run.log_info(f"Attributs TEI extraits : {tei.height} entités suivies.")
     return tei
 
@@ -638,8 +793,12 @@ def build_lab_summary(events: pl.DataFrame) -> pl.DataFrame:
             pl.col("is_neg").sum().alias("n_neg"),
             pl.col("is_inv").sum().alias("n_inv"),
             # Positif puis négatif / invalide (réversion du statut)
-            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Négatif")).alias("flag_pos_puis_neg"),
-            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Invalide")).alias("flag_pos_puis_inv"),
+            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Négatif")).alias(
+                "flag_pos_puis_neg"
+            ),
+            (pl.col("is_pos").any() & (pl.col("value_norm").last() == "Invalide")).alias(
+                "flag_pos_puis_inv"
+            ),
         )
     )
     n_confirmes = int(lab_summary.get_column("lab_confirme").sum())
@@ -681,7 +840,9 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
             f"traité(s) comme non renseigné(s) pour les drapeaux is_* "
             f"({', '.join(manquantes)})."
         )
-        lln = lln.with_columns(pl.lit(None, dtype=FLAG_SOURCE_DTYPES[col]).alias(col) for col in manquantes)
+        lln = lln.with_columns(
+            pl.lit(None, dtype=FLAG_SOURCE_DTYPES[col]).alias(col) for col in manquantes
+        )
 
     # fill_null(False) après chaque comparaison : Polars applique la logique de
     # Kleene (une comparaison à une valeur nulle donne « inconnu », pas faux),
@@ -706,7 +867,7 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
         | pl.col("modalite_sortie_cte").eq("Décédé(e)").fill_null(False)
         | pl.col("date_deces_pci").is_not_null()
     )
-    is_gueri = pl.col("modalite_sortie_cte").eq("Guéri(e)").fill_null(False)  # noqa: RUF001
+    is_gueri = pl.col("modalite_sortie_cte").eq("Guéri(e)").fill_null(False)
 
     lln = lln.with_columns(
         pl.lit(True).alias("is_alerte"),
@@ -744,8 +905,12 @@ def compute_lln_flags(lln: pl.DataFrame) -> pl.DataFrame:
         & pl.col("date_prelevement").is_not_null()
     )
     date_deces = pl.when(proxy_prelev).then(pl.col("date_prelevement")).otherwise(date_deces)
-    proxy_notif = date_deces.is_null() & pl.col("is_deces") & pl.col("date_notification").is_not_null()
-    date_deces = pl.when(proxy_notif).then(pl.col("date_notification").cast(pl.Date)).otherwise(date_deces)
+    proxy_notif = (
+        date_deces.is_null() & pl.col("is_deces") & pl.col("date_notification").is_not_null()
+    )
+    date_deces = (
+        pl.when(proxy_notif).then(pl.col("date_notification").cast(pl.Date)).otherwise(date_deces)
+    )
     # Publiée uniquement pour les décès avérés : depuis que date_deces_final
     # n'établit plus le décès à elle seule, elle renseignerait sinon une date de
     # décès sur un cas dont is_deces vaut False.
@@ -818,7 +983,9 @@ def build_line_list(
         how="left",
     )
 
-    cols_texte = [col for col in lln.columns if col.startswith("date_") and lln.schema[col] == pl.String]
+    cols_texte = [
+        col for col in lln.columns if col.startswith("date_") and lln.schema[col] == pl.String
+    ]
     lln = lln.with_columns(
         pl.col(cols_texte).str.strip_chars().str.slice(0, 10).str.to_date("%Y-%m-%d", strict=False)
     ).with_columns(pl.col(["date_confirmation", "date_dernier_test"]).cast(pl.Date, strict=False))
@@ -846,6 +1013,96 @@ def build_line_list(
     return lln.sort(["enrolled_at", "enrollment_id"], nulls_last=True)
 
 
+def build_contacts_line_list(
+    events: pl.DataFrame,
+    tei: pl.DataFrame,
+    org_units: pl.DataFrame,
+) -> pl.DataFrame:
+    """Construit la LLN du suivi des contacts (un suivi journalier par ligne).
+
+    Le programme ne compte qu'un program stage : chaque event_id porte un suivi
+    complet d'un contact. Pivote les data elements au grain event, joint les
+    attributs TEI, canonise la géographie, type les dates / booléens /
+    température puis applique le schéma config.DATASET_LLN_CONTACTS_COLS.
+
+    Args:
+        events: Événements bruts issus de load_contacts_events().
+        tei: Attributs d'entité suivie des contacts.
+        org_units: Unités d'organisation (hiérarchie géographique).
+
+    Returns:
+        La LLN contacts au schéma publié, triée de façon déterministe.
+    """
+    cles = ["event_id", "enrollment_id", "tracked_entity_id", "enrolled_at"]
+    contexte = events.group_by(cles).agg(
+        pl.col("enrollment_org_unit")
+        .sort_by(["occurred_at", "created_at"], nulls_last=True)
+        .last()
+        .alias("organisation_unit_id")
+    )
+    valeurs = events.sort(  # ruff: ignore[pandas-use-of-dot-pivot-or-unstack]
+        ["event_id", "created_at"], nulls_last=True
+    ).pivot(
+        on="data_element_id",
+        index="event_id",
+        values="value_norm",
+        aggregate_function="last",
+    )
+    lln = contexte.join(valeurs, on="event_id", how="left")
+    lln = lln.rename(
+        {de: nom for de, nom in config.DICO_DE_MAPPING_CONTACTS.items() if de in lln.columns}
+    )
+    lln = lln.join(tei, on="tracked_entity_id", how="inner")
+
+    # Data elements jamais collectés sur la période : colonnes vides typées
+    # texte, pour que les conversions ci-dessous s'appliquent sans erreur.
+    lln = lln.with_columns(
+        pl.lit(None, dtype=pl.String).alias(nom)
+        for nom in config.DICO_DE_MAPPING_CONTACTS.values()
+        if nom not in lln.columns
+    )
+
+    cols_texte = [
+        col for col in lln.columns if col.startswith("date_") and lln.schema[col] == pl.String
+    ]
+    lln = lln.with_columns(
+        pl.col(cols_texte).str.strip_chars().str.slice(0, 10).str.to_date("%Y-%m-%d", strict=False),
+        pl.col(["dernier_jour_de_suivi", "contact_vu"]).replace_strict(
+            {"true": True, "false": False}, default=None, return_dtype=pl.Boolean
+        ),
+        pl.col("temperature")
+        .str.strip_chars()
+        .str.replace(",", ".", literal=True)
+        .cast(pl.Float32, strict=False),
+    ).with_columns(
+        # Semaine ISO, même format que semaine_epidemio (« 2026-S05 »)
+        (
+            pl.col("date_de_suivi").dt.iso_year().cast(pl.String)
+            + "-S"
+            + pl.col("date_de_suivi").dt.week().cast(pl.String).str.zfill(2)
+        ).alias("semaine_de_suivi")
+    )
+
+    # Géographie : libellés canonisés (« it Ituri Province » -> « Ituri »)
+    lln = dataframe.join_object_names(df=lln, organisation_units=org_units)
+    lln = lln.rename({brut: nom for brut, nom in GEO_RENAME.items() if brut in lln.columns})
+    lln = lln.with_columns(
+        [
+            canoniser_geo_expr(niveau)
+            for niveau in ("province", "zone_sante", "aire_sante")
+            if niveau in lln.columns
+        ]
+    )
+
+    lln = apply_dataset_schema(lln, config.DATASET_LLN_CONTACTS_COLS)
+    current_run.log_info(
+        f"LLN contacts : {lln.height} suivis journaliers, "
+        f"{lln['tracked_entity_id'].n_unique()} contacts, {lln.width} colonnes."
+    )
+    # Tri déterministe (parquet reproductible, cf. build_line_list)
+    return lln.sort(["date_de_suivi", "event_id"], nulls_last=True)
+
+
 def apply_dataset_schema(df: pl.DataFrame, colonnes: list[str]) -> pl.DataFrame:
     """Applique le schéma publié : colonnes manquantes créées à NULL, ordre figé.
 
@@ -866,18 +1123,19 @@ def apply_dataset_schema(df: pl.DataFrame, colonnes: list[str]) -> pl.DataFrame:
     return df.select(colonnes)
 
 
-def write_lln_parquet(lln: pl.DataFrame) -> Path:
+def write_lln_parquet(lln: pl.DataFrame, nom_fichier: str = config.LLN_DATASET_FILE) -> Path:
     """Écrit la LLN dans le dossier de travail du workspace, sous un nom stable.
 
     Args:
         lln: LLN au schéma publié.
+        nom_fichier: Nom du parquet (LLN notifications par défaut).
 
     Returns:
         Le chemin du parquet écrit.
     """
     dossier = Path(workspace.files_path, *config.LLN_EXPORT_DIR.split("/"))
     dossier.mkdir(parents=True, exist_ok=True)
-    chemin = dossier / config.LLN_DATASET_FILE
+    chemin = dossier / nom_fichier
     lln.write_parquet(chemin)
     current_run.log_info(f"LLN écrite dans « {chemin} » ({chemin.stat().st_size / 1e6:.1f} Mo).")
     return chemin
@@ -885,9 +1143,16 @@ def write_lln_parquet(lln: pl.DataFrame) -> Path:
 
 def build_lln_metadata(
     lln: pl.DataFrame,
-    date_min: date,
+    date_min: date | None,
     date_max: date | None,
     horodatage: datetime,
+    source: str = f"public.{config.EVENTS_TABLE} (événements du tracker MVE, format long)",
+    grain: str = "un enrôlement (enrollment_id) par ligne",
+    confidentialite: str = (
+        "Liste linéaire nominative. Contient des quasi-identifiants (numéro Epid, "
+        "identifiant labo, âge, sexe, profession, aire de santé) et des coordonnées "
+        "GPS du domicile : diffusion restreinte aux personnes habilitées."
+    ),
 ) -> dict[str, object]:
     """Décrit la LLN publiée : périmètre, volumétrie, remplissage, confidentialité.
 
@@ -897,9 +1162,13 @@ def build_lln_metadata(
 
     Args:
         lln: LLN au schéma publié.
-        date_min: Borne basse de la fenêtre sur enrolled_at.
+        date_min: Borne basse de la fenêtre sur enrolled_at, ou None si
+            l'extraction est complète (aucune fenêtre publiée).
         date_max: Borne haute de la fenêtre, ou None.
         horodatage: Instant de génération (UTC).
+        source: Table source décrite dans les métadonnées.
+        grain: Grain d'une ligne de la LLN.
+        confidentialite: Mention de confidentialité.
 
     Returns:
         Les métadonnées du fichier, sérialisables en JSON.
@@ -917,22 +1186,22 @@ def build_lln_metadata(
     return {
         "pipeline": "compute_indicators_mve_tdb",
         "genere_le": horodatage.isoformat(timespec="seconds"),
-        "source": f"public.{config.EVENTS_TABLE} (événements du tracker MVE, format long)",
-        "grain": "un enrôlement (enrollment_id) par ligne",
-        "fenetre_enrolled_at": {
-            "min": date_min.isoformat(),
-            "max": date_max.isoformat() if date_max else None,
-        },
+        "source": source,
+        "grain": grain,
+        "fenetre_enrolled_at": (
+            {
+                "min": date_min.isoformat(),
+                "max": date_max.isoformat() if date_max else None,
+            }
+            if date_min
+            else None
+        ),
         "lignes": total,
         "colonnes": lln.width,
         "entites_suivies": lln["tracked_entity_id"].n_unique(),
         "taux_remplissage_pct": remplissage,
         "colonnes_vides": vides,
-        "confidentialite": (
-            "Liste linéaire nominative. Contient des quasi-identifiants (numéro Epid, "
-            "identifiant labo, âge, sexe, profession, aire de santé) et des coordonnées "
-            "GPS du domicile : diffusion restreinte aux personnes habilitées."
-        ),
+        "confidentialite": confidentialite,
     }
 
 
@@ -959,7 +1228,9 @@ def consolidate_line_list(
     )
 
     # Identifiants DHIS2 → noms lisibles (uniquement les colonnes présentes)
-    de_vers_nom = {de_id: nom for nom, de_id in config.DICO_DE_MAPPING.items() if de_id in line_list.columns}
+    de_vers_nom = {
+        de_id: nom for nom, de_id in config.DICO_DE_MAPPING.items() if de_id in line_list.columns
+    }
     line_list = line_list.rename(de_vers_nom)
 
     # Data elements jamais collectés sur la période → colonnes vides
@@ -973,7 +1244,9 @@ def consolidate_line_list(
         how="left",
     )
     if de_absents:
-        current_run.log_debug(f"Data elements absents de la période (créés vides) : {len(de_absents)}.")
+        current_run.log_debug(
+            f"Data elements absents de la période (créés vides) : {len(de_absents)}."
+        )
     current_run.log_info(f"Liste de ligne consolidée : {line_list.height} cas.")
     return line_list.drop("tracked_entity_id").to_pandas()
 
@@ -994,7 +1267,8 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
         lambda col: " / ".join(col.split(" / ")[:3])
     )
     for cible, source in config.DATE_COLS.items():
-        line_list[cible] = pd.to_datetime(line_list[source], errors="coerce")  # .dt.normalize()
+        dates = pd.Series(pd.to_datetime(line_list[source], errors="coerce"))
+        line_list[cible] = dates.where(dates.dt.year.between(1900, 2100))
 
     # Semaine épidémiologique ISO (recalculée depuis date_notif propre)
     iso = line_list["date_notif"].dt.isocalendar()
@@ -1018,13 +1292,17 @@ def compute_indicators(line_list: pd.DataFrame) -> pd.DataFrame:
     line_list["is_analyse"] = line_list["date_analyse_labo"].notna()
     line_list["is_confirme"] = (line_list["n_pos"].fillna(0) >= 1) & line_list["is_alerte_valide"]
     line_list["is_non_cas"] = (
-        (line_list["n_neg"].fillna(0) >= 1) & line_list["is_alerte_valide"] & ~line_list["is_confirme"]
+        (line_list["n_neg"].fillna(0) >= 1)
+        & line_list["is_alerte_valide"]
+        & ~line_list["is_confirme"]
     )
     line_list["is_suspect"] = (
         line_list["is_alerte_valide"] & ~line_list["is_confirme"] & ~line_list["is_non_cas"]
     )
     line_list["is_resultat_valide"] = line_list["is_confirme"] | line_list["is_non_cas"]
-    line_list["n_echantillons_valides"] = line_list["n_pos"].fillna(0) + line_list["n_neg"].fillna(0)
+    line_list["n_echantillons_valides"] = line_list["n_pos"].fillna(0) + line_list["n_neg"].fillna(
+        0
+    )
 
     # Définition alignée sur compute_lln_flags : la date de décès du statut
     # final (date_deces_final) n'établit plus le décès à elle seule.
@@ -1185,7 +1463,7 @@ def build_line_list_individu(
     line_list["ct_ebov_classe"] = pd.cut(
         line_list["valeur_ct_ebov"],
         bins=[-np.inf, 18, 21, 24, 27, 30, 33, np.inf],
-        labels=["<18", "18–21", "21–24", "24–27", "27–30", "30–33", ">33"],  # noqa: RUF001
+        labels=["<18", "18–21", "21–24", "24–27", "27–30", "30–33", ">33"],  # ruff: ignore[ambiguous-unicode-character-string]
         right=False,
     ).astype("object")
 
@@ -1269,12 +1547,16 @@ def aggregate_rapportage(
             .rename(columns={date_col: "date_rapportage"})
         )
         merged = (
-            grouped if merged is None else merged.merge(grouped, on=["date_rapportage", *dims], how="outer")
+            grouped
+            if merged is None
+            else merged.merge(grouped, on=["date_rapportage", *dims], how="outer")
         )
 
     valeurs = [c for c in merged.columns if c not in ("date_rapportage", *dims)]
     merged[valeurs] = merged[valeurs].fillna(0).astype(int)
-    merged = merged.sort_values(["date_rapportage", "province", "zone_sante"]).reset_index(drop=True)
+    merged = merged.sort_values(["date_rapportage", "province", "zone_sante"]).reset_index(
+        drop=True
+    )
 
     merged = merged.merge(
         ou_zone_sante.select(["geo_hierarchie", "coordinates"])
@@ -1283,7 +1565,9 @@ def aggregate_rapportage(
         on="geo_hierarchie",
         how="left",
     )
-    merged["geo_hierarchie"] = merged["geo_hierarchie"].apply(lambda col: " / ".join(col.split(" / ")[:2]))
+    merged["geo_hierarchie"] = merged["geo_hierarchie"].apply(
+        lambda col: " / ".join(col.split(" / ")[:2])
+    )
     merged = merged.merge(
         ou_provinces.select(["geo_hierarchie", "coordinates"])
         .rename({"coordinates": "coordinates_province"})
@@ -1323,7 +1607,7 @@ def aggregate_indicators(
 
     if colonne_date == "date_deces":
         indicators = indicators.copy()
-        indicators["date_deces"] = reconstruct_date_deces(indicators)
+        indicators["date_deces"] = _to_naive_datetime(reconstruct_date_deces(indicators))
         indicators = indicators[indicators["is_deces"]]
 
     group_keys = [
@@ -1391,11 +1675,11 @@ def ingerer_adbc(
         conn.commit()
 
 
-def to_polars_for_adbc(df: pd.DataFrame) -> pl.DataFrame:
+def to_polars_for_adbc(df: pd.DataFrame | pl.DataFrame) -> pl.DataFrame:
     """Convertit en Polars en neutralisant les types qu'ADBC ne sait pas écrire.
 
     Args:
-        df: Table pandas à publier.
+        df: Table (pandas ou Polars) à publier.
 
     Returns:
         Le DataFrame Polars prêt pour l'ingestion ADBC.
@@ -1418,7 +1702,7 @@ def to_polars_for_adbc(df: pd.DataFrame) -> pl.DataFrame:
 
 
 def export_to_database(
-    df: pd.DataFrame,
+    df: pd.DataFrame | pl.DataFrame,
     table_name: str,
     db_url: str,
     mode: Literal["append", "replace", "fail"] = "replace",
@@ -1452,7 +1736,9 @@ def export_to_database(
         current_run.log_warning(f"Repli SQLAlchemy pour « {table_name} » (écriture dégradée).")
         echec_repli: str | None = None
         try:
-            frame.write_database(table_name, connection=db_url, if_table_exists=mode, engine="sqlalchemy")
+            frame.write_database(
+                table_name, connection=db_url, if_table_exists=mode, engine="sqlalchemy"
+            )
         except Exception as exc:
             echec_repli = f"{type(exc).__module__}.{type(exc).__name__}: {exc}"
 
@@ -1482,9 +1768,9 @@ def verifier_export(frame: pl.DataFrame, table_name: str, db_url: str) -> None:
     projection = ", ".join(
         ["count(*) AS lignes", *[f'count(DISTINCT "{col}") AS "d_{col}"' for col in temoins]]
     )
-    relu = pl.read_database_uri(f'SELECT {projection} FROM "public"."{table_name}"', uri=db_url).row(
-        0, named=True
-    )
+    relu = pl.read_database_uri(
+        f'SELECT {projection} FROM "public"."{table_name}"', uri=db_url
+    ).row(0, named=True)
 
     ecarts = []
     if int(relu["lignes"]) != frame.height:
