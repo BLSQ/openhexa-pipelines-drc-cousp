@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 import config
 import db_operations
@@ -8,7 +8,7 @@ import toolbox
 from openhexa.sdk import DHIS2Connection, current_run, parameter, pipeline, workspace
 from openhexa.sdk.pipelines.parameter import DHIS2Widget
 from openhexa.toolbox.dhis2 import DHIS2
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Engine
 
 
 @pipeline("DHIS2 Tracker Extract MVE")
@@ -18,6 +18,15 @@ from sqlalchemy import create_engine
     name="Connexion DHIS2",
     help="Connexion à l'instance tracker MVE",
     required=True,
+)
+@parameter(
+    "program_uids",
+    type=str,
+    multiple=True,
+    name="Programmes tracker",
+    help="UID des programmes tracker à extraire (une table par programme). "
+    "Par défaut : les deux trackers MVE.",
+    required=False,
 )
 @parameter(
     "org_unit_parent",
@@ -54,28 +63,35 @@ from sqlalchemy import create_engine
 )
 def dhis2_tracker_extract_pipeline(
     dhis_con: DHIS2Connection,
+    program_uids: list[str] | None = None,
     org_unit_parent: str = "ymGeqzoPhN3",
     occurred_after: str | None = None,
     occurred_before: str | None = None,
     full_refresh: bool = False,
 ) -> None:
-    """Extrait les deux trackers MVE et upsert une table BD par programme."""
+    """Extrait des programmes tracker DHIS2 et upsert une table BD par programme."""
+    if program_uids is None:
+        program_uids = list(config.PROGRAMS)
     validate_date(occurred_after, "occurred_after")
     validate_date(occurred_before, "occurred_before")
+    program_uids = list(dict.fromkeys(program_uids or config.PROGRAMS))
 
-    run_started_at = datetime.now(timezone.utc)
+    run_started_at = datetime.now(UTC)
     manual_window = bool(occurred_after or occurred_before)
 
     tracker = DHIS2(dhis_con)
     engine = create_engine(workspace.database_url)
 
+    current_run.log_info(f"Instance DHIS2 {toolbox.check_dhis2_version(tracker)}")
+    programs = toolbox.get_programs(tracker, program_uids)
+
     current_run.log_info("Chargement des métadonnées (data elements, options, géo)…")
-    df_stage_de = toolbox.get_program_stage_data_elements(tracker)
+    df_stage_de = toolbox.get_program_stage_data_elements(tracker, program_uids)
     df_options = toolbox.get_option_sets(tracker)
     df_org_levels = toolbox.get_org_unit_levels(tracker)
     de_options_map, multi_de = toolbox.build_value_decoder(df_stage_de, df_options)
 
-    for program_uid, short_name in config.PROGRAMS.items():
+    for program_uid, short_name in programs.items():
         table = f"{short_name}_events"
 
         updated_after = incremental_watermark(
@@ -84,11 +100,7 @@ def dhis2_tracker_extract_pipeline(
         mode = (
             "fenêtre manuelle"
             if manual_window
-            else (
-                "complet"
-                if updated_after is None
-                else f"incrémental depuis {updated_after}"
-            )
+            else ("complet" if updated_after is None else f"incrémental depuis {updated_after}")
         )
         current_run.log_info(f"Extraction {short_name} ({program_uid}) — {mode}…")
 
@@ -120,7 +132,7 @@ def dhis2_tracker_extract_pipeline(
 
 
 def incremental_watermark(
-    engine,
+    engine: Engine,
     short_name: str,
     manual_window: bool,
     full_refresh: bool,
@@ -170,9 +182,7 @@ def validate_date(value: str | None, name: str) -> None:
         try:
             datetime.strptime(value, "%Y-%m-%d")
         except ValueError as exc:
-            raise ValueError(
-                f"{name} doit être au format YYYY-MM-DD (reçu : {value!r})."
-            ) from exc
+            raise ValueError(f"{name} doit être au format YYYY-MM-DD (reçu : {value!r}).") from exc
 
 
 if __name__ == "__main__":

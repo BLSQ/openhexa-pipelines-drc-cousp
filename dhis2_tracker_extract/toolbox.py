@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import re
+import unicodedata
+
 import config
 import polars as pl
 from openhexa.toolbox.dhis2 import DHIS2, dataframe
 
 
-def get_program_stage_data_elements(tracker: DHIS2) -> pl.DataFrame:
-    """Extrait le catalogue (program stage x data element) de l'instance.
-
-    Sert à la fois au décodage des valeurs (option set + type) et à l'étiquetage
-    des événements (nom lisible du stage et du data element).
+def dhis2_minor_version(tracker: DHIS2) -> int:
+    """Version mineure de l'instance DHIS2 (``"2.41.6"`` -> ``41``).
 
     Parameters
     ----------
@@ -18,22 +18,162 @@ def get_program_stage_data_elements(tracker: DHIS2) -> pl.DataFrame:
 
     Returns
     -------
+    int
+        Version mineure, ``0`` si elle n'est pas lisible.
+    """
+    parts = str(tracker.version or "").split(".")
+    return int("".join(ch for ch in parts[1] if ch.isdigit()) or 0) if len(parts) > 1 else 0
+
+
+def check_dhis2_version(tracker: DHIS2) -> str:
+    """Vérifie que l'instance est prise en charge >= 2.{config.MIN_DHIS2_MINOR}.
+
+    Parameters
+    ----------
+    tracker : DHIS2
+        Client DHIS2 authentifié.
+
+    Returns
+    -------
+    str
+        Version brute de l'instance (pour le log).
+
+    Raises
+    ------
+    ValueError
+        Si la version est antérieure à 2.``MIN_DHIS2_MINOR`` ou illisible.
+    """
+    if dhis2_minor_version(tracker) < config.MIN_DHIS2_MINOR:
+        raise ValueError(
+            f"Version DHIS2 non prise en charge : {tracker.version!r} "
+            f"(minimum 2.{config.MIN_DHIS2_MINOR})."
+        )
+    return tracker.version
+
+
+def tracker_api_names(tracker: DHIS2) -> dict[str, str]:
+    """Noms des paramètres du tracker API selon la version de l'instance.
+
+    Parameters
+    ----------
+    tracker : DHIS2
+        Client DHIS2 authentifié.
+
+    Returns
+    -------
+    dict[str, str]
+        ``{"ou_mode", "trackedEntities", "enrollments"}`` -> nom du paramètre.
+    """
+    if dhis2_minor_version(tracker) >= 41:
+        return {
+            "ou_mode": "orgUnitMode",
+            "trackedEntities": "trackedEntities",
+            "enrollments": "enrollments",
+        }
+    return {"ou_mode": "ouMode", "trackedEntities": "trackedEntity", "enrollments": "enrollment"}
+
+
+def slugify(text: str, max_length: int = 47) -> str:
+    """Nom d'identifiant SQL sûr : minuscules ASCII, ``_`` comme séparateur.
+
+    Parameters
+    ----------
+    text : str
+        Texte source (ex. nom court du programme DHIS2).
+    max_length : int, optional
+        Longueur maximale. PostgreSQL tronque les identifiants à 63
+        caractères : nom court (<= 47) + ``_events__staging`` (16) tient dans
+        cette limite.
+
+    Returns
+    -------
+    str
+        Identifiant normalisé, ex. ``"MVE - Contacts"`` -> ``"mve_contacts"``.
+    """
+    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^a-z0-9]+", "_", ascii_text.lower()).strip("_")
+    return slug[:max_length].rstrip("_")
+
+
+def get_programs(tracker: DHIS2, program_uids: list[str]) -> dict[str, str]:
+    """Résout les programmes à extraire en ``{uid: nom court}``.
+
+    Parameters
+    ----------
+    tracker : DHIS2
+        Client DHIS2 authentifié.
+    program_uids : list[str]
+        UID des programmes demandés.
+
+    Returns
+    -------
+    dict[str, str]
+        ``{program_uid: short_name}`` dans l'ordre demandé.
+
+    Raises
+    ------
+    ValueError
+        Si un UID est introuvable (ou inaccessible), si ce n'est pas un
+        programme tracker (``WITH_REGISTRATION``) ou si deux programmes
+        aboutissent au même nom court.
+    """
+    response = tracker.api.get(
+        "programs",
+        params={
+            "filter": f"id:in:[{','.join(program_uids)}]",
+            "fields": "id,name,shortName,programType",
+            "paging": "false",
+        },
+    )
+    found = {p["id"]: p for p in response.get("programs", [])}
+    missing = [uid for uid in program_uids if uid not in found]
+    if missing:
+        raise ValueError(f"Programmes introuvables ou inaccessibles : {', '.join(missing)}.")
+    not_tracker = [
+        uid for uid in program_uids if found[uid].get("programType") != "WITH_REGISTRATION"
+    ]
+    if not_tracker:
+        raise ValueError(
+            "Programmes sans inscription (programmes événementiels) non pris en charge : "
+            f"{', '.join(not_tracker)}."
+        )
+    programs = {
+        uid: config.PROGRAMS.get(uid) or slugify(found[uid].get("shortName") or found[uid]["name"])
+        for uid in program_uids
+    }
+    if len(set(programs.values())) != len(programs):
+        raise ValueError(f"Noms courts de programmes en collision : {programs}.")
+    return programs
+
+
+def get_program_stage_data_elements(
+    tracker: DHIS2, program_uids: list[str] | None = None
+) -> pl.DataFrame:
+    """Extrait le catalogue (program stage x data element) de l'instance.
+
+    Parameters
+    ----------
+    tracker : DHIS2
+        Client DHIS2 authentifié.
+    program_uids : list[str], optional
+        Restreint le catalogue aux stages de ces programmes. ``None`` = tous.
+
+    Returns
+    -------
     pl.DataFrame
         Une ligne par data element rattaché à un stage, colonnes :
         ``program_stage_id, program_stage_name, data_element_id,
         data_element_name, value_type, option_set_id, option_set_name``.
     """
-    metadata = tracker.api.get(
-        "programStages",
-        params={
-            "fields": (
-                "id,name,"
-                "programStageDataElements["
-                "dataElement[id,name,valueType,optionSet[id,name]]"
-                "]"
-            )
-        },
-    )
+    params = {
+        "fields": (
+            "id,name,programStageDataElements[dataElement[id,name,valueType,optionSet[id,name]]]"
+        ),
+        "paging": "false",
+    }
+    if program_uids:
+        params["filter"] = f"program.id:in:[{','.join(program_uids)}]"
+    metadata = tracker.api.get("programStages", params=params)
     rows: list[dict] = []
     for stage in metadata.get("programStages", []):
         for psde in stage.get("programStageDataElements", []):
@@ -111,13 +251,113 @@ def get_org_unit_levels(tracker: DHIS2) -> pl.DataFrame:
     return org_units.select(["id", *level_cols])
 
 
-def get_tracked_entities(tracker: DHIS2, program_uid: str) -> pl.DataFrame:
+def _items(response: dict, key: str) -> list[dict]:
+    """Extrait la liste d'une réponse tracker.
+
+    Parameters
+    ----------
+    response : dict
+        Réponse JSON du tracker API.
+    key : str
+        Clé de la liste à partir de DHIS2 2.41 (``events``, ``enrollments``…).
+
+    Returns
+    -------
+    list[dict]
+        Éléments de la page ; repli sur ``instances`` (DHIS2 < 2.41).
+    """
+    return response.get(key, response.get("instances", []))
+
+
+def _paginate(tracker: DHIS2, endpoint: str, key: str, params: dict) -> list[dict]:
+    """Parcourt toutes les pages d'un endpoint tracker.
+
+    Parameters
+    ----------
+    tracker : DHIS2
+        Client DHIS2 authentifié.
+    endpoint : str
+        Endpoint relatif (ex. ``tracker/trackedEntities``).
+    key : str
+        Clé de la liste dans la réponse (ex. ``trackedEntities``) ; repli sur
+        ``instances`` pour DHIS2 < 2.41.
+    params : dict
+        Paramètres de requête, ``pageSize`` inclus (``page`` est géré ici).
+
+    Returns
+    -------
+    list[dict]
+        Concaténation des éléments de toutes les pages.
+    """
+    items: list[dict] = []
+    page = 1
+    while True:
+        response = tracker.api.get(endpoint, params={**params, "page": page})
+        batch = _items(response, key)
+        items.extend(batch)
+        page_count = response.get("pager", {}).get("pageCount")
+        if len(batch) < params["pageSize"] or (page_count and page >= page_count):
+            break
+        page += 1
+    return items
+
+
+def _fetch_by_uids(
+    tracker: DHIS2,
+    endpoint: str,
+    key: str,
+    params: dict,
+    uid_param: str,
+    uids: list[str] | None,
+    page_size: int,
+) -> list[dict]:
+    """Extrait un endpoint, éventuellement restreint à une liste d'UID.
+
+    Parameters
+    ----------
+    tracker : DHIS2
+        Client DHIS2 authentifié.
+    endpoint, key : str
+        Cf. :func:_paginate.
+    params : dict
+        Paramètres communs (sans page ni pageSize).
+    uid_param : str
+        Nom du paramètre de filtre UID (cf. :func:tracker_api_names).
+    uids : list[str] | None
+        UID à extraire ; None = tout le programme.
+    page_size : int
+        Taille de page de la pagination complète.
+
+    Returns
+    -------
+    list[dict]
+        Éléments extraits.
+    """
+    if uids is None:
+        return _paginate(tracker, endpoint, key, {**params, "pageSize": page_size})
+    items: list[dict] = []
+    size = config.UID_BATCH_SIZE
+    for i in range(0, len(uids), size):
+        batch = uids[i : i + size]
+        response = tracker.api.get(
+            endpoint,
+            params={**params, uid_param: ";".join(batch), "page": 1, "pageSize": len(batch)},
+        )
+        items.extend(_items(response, key))
+    return items
+
+
+def get_tracked_entities(
+    tracker: DHIS2,
+    program_uid: str,
+    tracked_entity_ids: list[str] | None = None,
+    page_size: int = config.TEI_PAGE_SIZE,
+) -> pl.DataFrame:
     """Extrait les tracked entities d'un programme avec leurs attributs.
 
     Une ligne par TEI ; chaque attribut devient une colonne (clé =
     ``displayName``), exposant directement num_epid, sexe, âge, date de
-    notification… pour l'agrégation. La pagination s'arrête dès qu'une page
-    revient vide (robuste aux variations de ``pager`` selon les versions DHIS2).
+    notification… pour l'agrégation.
 
     Parameters
     ----------
@@ -125,34 +365,33 @@ def get_tracked_entities(tracker: DHIS2, program_uid: str) -> pl.DataFrame:
         Client DHIS2 authentifié.
     program_uid : str
         UID du programme tracker.
+    tracked_entity_ids : list[str], optional
+        Restreint l'extraction à ces TEI (typiquement ceux référencés par les
+        événements extraits). ``None`` = tous les TEI du programme.
+    page_size : int, optional
+        Taille de page de la pagination complète.
 
     Returns
     -------
     pl.DataFrame
         Une ligne par TEI : ``tracked_entity_id, organisation_unit_id,
         created_at, updated_at`` + une colonne par attribut. DataFrame vide
-        (schéma minimal) si le programme n'a aucun TEI.
+        (schéma minimal) si aucun TEI.
     """
-    all_teis: list[dict] = []
-    page = 1
-    while True:
-        response = tracker.api.get(
-            "tracker/trackedEntities",
-            params={
-                "program": program_uid,
-                "fields": "trackedEntity,orgUnit,createdAt,updatedAt,attributes",
-                "page": page,
-                "pageSize": 100,
-            },
-        )
-        all_teis.extend(response.get("trackedEntities", []))
-        pager = response.get("pager", {})
-
-        if not response.get("trackedEntities"):
-            break
-        if pager.get("pageCount") and page >= pager["pageCount"]:
-            break
-        page += 1
+    names = tracker_api_names(tracker)
+    all_teis = _fetch_by_uids(
+        tracker,
+        "tracker/trackedEntities",
+        "trackedEntities",
+        {
+            "program": program_uid,
+            names["ou_mode"]: "ACCESSIBLE",
+            "fields": "trackedEntity,orgUnit,createdAt,updatedAt,attributes",
+        },
+        names["trackedEntities"],
+        tracked_entity_ids,
+        page_size,
+    )
 
     if not all_teis:
         return pl.DataFrame(
@@ -171,19 +410,20 @@ def get_tracked_entities(tracker: DHIS2, program_uid: str) -> pl.DataFrame:
             for row in all_teis
         ]
     )
-    df = df.select(
-        pl.exclude(
-            [
-                "MVE - Nom du Chef de quartier",
-                "MVE - Nom, post nom et prénom du cas",
-                "002 MVE-FS-Nom et prénom du contact",
-                "MVE - FC - Fiche remplie par",
-                "003 MVE-FS-Chef de famille",
-            ]
-        )
-    )
+    # df = df.select(
+    #     pl.exclude(
+    #         [
+    #             "MVE - Nom du Chef de quartier",
+    #             "MVE - Nom, post nom et prénom du cas",
+    #             "002 MVE-FS-Nom et prénom du contact",
+    #             "MVE - FC - Fiche remplie par",
+    #             "003 MVE-FS-Chef de famille",
+    #         ]
+    #     )
+    # )
 
-    return df.with_columns(
+    # Garde-fou : un TEI dupliqué démultiplierait les lignes à la jointure.
+    return df.unique(subset="tracked_entity_id", keep="first").with_columns(
         pl.col(col).cast(pl.Datetime, strict=False).dt.date().alias(col)
         for col in ("created_at", "updated_at")
     )
@@ -193,6 +433,7 @@ def get_enrollments(
     tracker: DHIS2,
     program_uid: str,
     org_unit_parent: str = config.ORG_UNIT_PARENT,
+    enrollment_ids: list[str] | None = None,
     page_size: int = config.PAGE_SIZE,
 ) -> pl.DataFrame:
     """Extrait les enrôlements d'un programme (date d'inscription par cas).
@@ -205,8 +446,11 @@ def get_enrollments(
         UID du programme tracker.
     org_unit_parent : str, optional
         Org unit racine ; on extrait tous ses descendants (``DESCENDANTS``).
+    enrollment_ids : list[str], optional
+        Restreint l'extraction à ces enrôlements (typiquement ceux référencés
+        par les événements extraits). ``None`` = tous les enrôlements.
     page_size : int, optional
-        Taille de page des appels paginés.
+        Taille de page de la pagination complète.
 
     Returns
     -------
@@ -215,30 +459,18 @@ def get_enrollments(
         enrollment_org_unit`` (``enrollment_id`` = clé de jointure côté
         événements). DataFrame vide (schéma typé) si aucun enrôlement.
     """
-    rows: list[dict] = []
-    page = 1
-    params = {
-        "program": program_uid,
-        "orgUnit": org_unit_parent,
-        "orgUnitMode": "DESCENDANTS",
-        "pageSize": page_size,
-    }
-    while True:
-        params["page"] = page
-        enrollments = tracker.api.get("tracker/enrollments", params).get("enrollments", [])
-        if not enrollments:
-            break
-        for e in enrollments:
-            rows.append(
-                {
-                    "enrollment_id": e.get("enrollment"),
-                    "enrolled_at": e.get("enrolledAt"),
-                    "enrollment_org_unit": e.get("orgUnit"),
-                }
-            )
-        page += 1
+    names = tracker_api_names(tracker)
+    enrollments = _fetch_by_uids(
+        tracker,
+        "tracker/enrollments",
+        "enrollments",
+        {"program": program_uid, "orgUnit": org_unit_parent, names["ou_mode"]: "DESCENDANTS"},
+        names["enrollments"],
+        enrollment_ids,
+        page_size,
+    )
 
-    if not rows:
+    if not enrollments:
         return pl.DataFrame(
             schema={
                 "enrollment_id": pl.String,
@@ -246,7 +478,19 @@ def get_enrollments(
                 "enrollment_org_unit": pl.String,
             }
         )
-    return pl.DataFrame(rows).with_columns(pl.col("enrolled_at").cast(pl.Datetime, strict=False))
+    rows = [
+        {
+            "enrollment_id": e.get("enrollment"),
+            "enrolled_at": e.get("enrolledAt"),
+            "enrollment_org_unit": e.get("orgUnit"),
+        }
+        for e in enrollments
+    ]
+    return (
+        pl.DataFrame(rows)
+        .unique(subset="enrollment_id", keep="first")
+        .with_columns(pl.col("enrolled_at").cast(pl.Datetime, strict=False))
+    )
 
 
 def get_events(
@@ -292,12 +536,10 @@ def get_events(
         organisation_unit_id, occurred_at, created_at, updated_at, deleted``) +
         ``data_element_id, value``. DataFrame vide si aucun événement.
     """
-    rows: list[dict] = []
-    page = 1
     params = {
         "program": program_uid,
         "orgUnit": org_unit_parent,
-        "orgUnitMode": "DESCENDANTS",
+        tracker_api_names(tracker)["ou_mode"]: "DESCENDANTS",
         "pageSize": page_size,
     }
     if occurred_after:
@@ -309,37 +551,32 @@ def get_events(
     if include_deleted:
         params["includeDeleted"] = "true"
 
-    while True:
-        params["page"] = page
-        events = tracker.api.get("tracker/events", params).get("events", [])
-        if not events:
-            break
-        for event in events:
-            common = {
-                "event_id": event.get("event"),
-                "status": event.get("status"),
-                "program_id": event.get("program"),
-                "tracked_entity_id": event.get("trackedEntity"),
-                "program_stage_id": event.get("programStage"),
-                "enrollment_id": event.get("enrollment"),
-                "organisation_unit_id": event.get("orgUnit"),
-                "occurred_at": event.get("occurredAt"),
-                "created_at": event.get("createdAt"),
-                "updated_at": event.get("updatedAt"),
-                "deleted": event.get("deleted"),
-            }
-            data_values = event.get("dataValues", [])
-            if not data_values:
-                rows.append({**common, "data_element_id": None, "value": None})
-            for dv in data_values:
-                rows.append(
-                    {
-                        **common,
-                        "data_element_id": dv.get("dataElement"),
-                        "value": dv.get("value"),
-                    }
-                )
-        page += 1
+    rows: list[dict] = []
+    for event in _paginate(tracker, "tracker/events", "events", params):
+        common = {
+            "event_id": event.get("event"),
+            "status": event.get("status"),
+            "program_id": event.get("program"),
+            "tracked_entity_id": event.get("trackedEntity"),
+            "program_stage_id": event.get("programStage"),
+            "enrollment_id": event.get("enrollment"),
+            "organisation_unit_id": event.get("orgUnit"),
+            "occurred_at": event.get("occurredAt"),
+            "created_at": event.get("createdAt"),
+            "updated_at": event.get("updatedAt"),
+            "deleted": event.get("deleted"),
+        }
+        data_values = event.get("dataValues", [])
+        if not data_values:
+            rows.append({**common, "data_element_id": None, "value": None})
+        for dv in data_values:
+            rows.append(
+                {
+                    **common,
+                    "data_element_id": dv.get("dataElement"),
+                    "value": dv.get("value"),
+                }
+            )
 
     if not rows:
         return pl.DataFrame()
@@ -492,12 +729,11 @@ def enrich_events(
         how="left",
     )
 
-    out = out.join(
+    return out.join(
         df_org_levels.rename({"id": "organisation_unit_id"}),
         on="organisation_unit_id",
         how="left",
     )
-    return out
 
 
 def extract_tracker(
@@ -556,8 +792,35 @@ def extract_tracker(
     if df_events.is_empty():
         return df_events
 
-    df_enrollments = get_enrollments(tracker, program_uid, org_unit_parent=org_unit_parent)
-    df_tei = get_tracked_entities(tracker, program_uid)
+    df_enrollments = get_enrollments(
+        tracker,
+        program_uid,
+        org_unit_parent=org_unit_parent,
+        enrollment_ids=_distinct_ids(df_events, "enrollment_id"),
+    )
+    df_tei = get_tracked_entities(
+        tracker,
+        program_uid,
+        tracked_entity_ids=_distinct_ids(df_events, "tracked_entity_id"),
+    )
 
     df_events = add_value_norm(df_events, de_options_map, multi_de)
     return enrich_events(df_events, df_enrollments, df_tei, df_stage_de, df_org_levels)
+
+
+def _distinct_ids(df: pl.DataFrame, col: str) -> list[str]:
+    """Liste triée des UID non nuls et distincts d'une colonne.
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        Table source (typiquement les événements extraits).
+    col : str
+        Colonne d'UID.
+
+    Returns
+    -------
+    list[str]
+        UID distincts, triés (requêtes déterministes).
+    """
+    return df.get_column(col).drop_nulls().unique().sort().to_list()

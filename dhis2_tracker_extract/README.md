@@ -10,6 +10,10 @@ programme :
 - `mve_notification` (`wDFB7FFlYQM`) — Notification d'alerte et investigation de cas
 - `mve_contacts` (`wyLS271t8Id`) — Fiche d'identification et suivi individuel des contacts
 
+Ces deux programmes sont la valeur par défaut : le pipeline extrait **n'importe
+quel programme tracker** (`WITH_REGISTRATION`) passé dans le paramètre
+`program_uids` (voir [Réutilisation](#réutilisation)).
+
 Pour chaque programme, le pipeline :
 
 1. charge une fois les **métadonnées** de l'instance (data elements par stage,
@@ -18,7 +22,9 @@ Pour chaque programme, le pipeline :
    événement × data element) ;
 3. les **enrichit** par jointure avec les enrôlements (date d'inscription), les
    tracked entities (num_epid, sexe, âge…), les libellés des data elements et la
-   hiérarchie géographique ;
+   hiérarchie géographique. Seuls les enrôlements et TEI **référencés par les
+   événements extraits** sont rapatriés (requêtes par lots d'UID), ce qui rend
+   le mode incrémental léger ;
 4. **décode** les valeurs codées (option sets, y compris `MULTI_TEXT`) dans une
    colonne `value_norm` ;
 5. **upsert** le résultat dans la table cible au grain `event_id`.
@@ -48,14 +54,48 @@ Le mode est déterminé ainsi :
 
 | Paramètre | Type | Requis | Défaut | Description |
 |-----------|------|--------|--------|-------------|
-| Connexion DHIS2 (`dhis_con`) | DHIS2 Connection | Oui | – | Connexion à l'instance tracker MVE |
+| Connexion DHIS2 (`dhis_con`) | DHIS2 Connection | Oui | – | Connexion à l'instance tracker (DHIS2 ≥ 2.38) |
+| Programmes tracker (`program_uids`) | String (multiple) | Oui | `wDFB7FFlYQM`, `wyLS271t8Id` | UID des programmes tracker à extraire, une table par programme |
 | Unité d'organisation racine (`org_unit_parent`) | String (widget Org Units) | Non | `ymGeqzoPhN3` | UID de l'org unit dont on extrait les descendants (`DESCENDANTS`) |
 | Événements depuis (`occurred_after`) | String | Non | – | Fenêtre manuelle par date de survenue (`YYYY-MM-DD`). Vide = extraction incrémentale depuis la dernière exécution |
 | Événements jusqu'à (`occurred_before`) | String | Non | – | Borne supérieure de la fenêtre manuelle (`YYYY-MM-DD`, optionnel) |
 | Rechargement complet (`full_refresh`) | Boolean | Non | `False` | Ignore le filigrane et ré-extrait tout l'historique (upsert) |
 
 > Les dates manuelles sont validées au format `YYYY-MM-DD` ; un format invalide
-> arrête le pipeline avec une erreur explicite.
+> arrête le pipeline avec une erreur explicite. Les programmes sont vérifiés
+> avant extraction : un UID introuvable ou un programme événementiel arrête le
+> pipeline.
+
+## Réutilisation
+
+Le pipeline n'est pas propre à la MVE : il suffit de changer `program_uids`
+(et `org_unit_parent`) pour extraire un autre tracker, sur la même instance ou
+sur une autre.
+
+- **Nom des tables** : `{nom_court}_events`. Le nom court reprend
+  `config.PROGRAMS` si l'UID y figure (noms historiques `mve_*`). Sinon c'est le
+  `shortName` DHIS2 normalisé (`"Rougeole - Cas"` → `rougeole_cas_events`,
+  47 caractères max). Pour imposer un nom (préfixe, convention du projet…),
+  ajouter l'UID et le nom voulu à `config.PROGRAMS`. Renommer le programme dans DHIS2 change donc le nom de
+  table (et repart d'un filigrane vide) : pour figer un nom, ajouter l'UID à
+  `config.PROGRAMS`.
+- **Filigrane** : clé = nom court dans `dhis2_extract_state`, un par programme.
+- **Versions DHIS2** : 2.38 et plus. Le pipeline lit la version de l'instance et
+  adapte le tracker API, qui a changé en 2.41 :
+
+  | | < 2.41 | ≥ 2.41 |
+  |---|---|---|
+  | Périmètre org unit | `ouMode` | `orgUnitMode` |
+  | Filtre TEI / enrôlements par UID | `trackedEntity` / `enrollment` | `trackedEntities` / `enrollments` |
+  | Clé de la liste dans la réponse | `instances` | `events` / `enrollments` / `trackedEntities` |
+
+- **Colonnes d'attributs TEI** : nommées d'après le `displayName`, qui dépend de
+  la langue de l'utilisateur de la connexion DHIS2. Garder la même connexion
+  (ou la même langue) d'un run à l'autre pour ne pas créer de nouvelles
+  colonnes.
+- **Données nominatives** : aucun attribut TEI n'est exclu ; la table de sortie
+  peut contenir des noms et identifiants de personnes. Restreindre l'accès à la
+  base du workspace en conséquence.
 
 ## Sortie
 
@@ -64,6 +104,9 @@ workspace (`workspace.database_url`) :
 
 - `mve_notification_events`
 - `mve_contacts_events`
+
+(valeurs par défaut ; cf. [Réutilisation](#réutilisation) pour d'autres
+programmes).
 
 Chaque table est mise à jour par **upsert au grain `event_id`** : toutes les
 lignes d'un `event_id` présent dans le lot sont remplacées (staging → suppression
@@ -132,7 +175,7 @@ flowchart TD
 | `pipeline.py` | Point d'entrée OpenHexa : paramètres, orchestration, logique incrémentale |
 | `toolbox.py` | Extraction et enrichissement DHIS2 (événements, enrôlements, TEI, métadonnées, décodage) |
 | `db_operations.py` | Filigrane (lecture/écriture) et upsert au grain `event_id` |
-| `config.py` | Constantes : programmes, org unit racine, taille de page, clés |
+| `config.py` | Constantes : programmes par défaut, org unit racine, tailles de page et de lot, version DHIS2 minimale, clés |
 | `requirements.txt` | Dépendances Python |
 | `tests/` | Tests pytest (logique incrémentale, décodage, enrichissement) |
 

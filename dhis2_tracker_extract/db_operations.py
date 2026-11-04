@@ -3,15 +3,15 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-import polars as pl
-
 import config
+import polars as pl
+from sqlalchemy import inspect, text
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
 
-def read_watermark(engine: "Engine", program_short: str) -> datetime | None:
+def read_watermark(engine: Engine, program_short: str) -> datetime | None:
     """Lit le filigrane (dernière exécution réussie) d'un programme.
 
     Parameters
@@ -28,8 +28,6 @@ def read_watermark(engine: "Engine", program_short: str) -> datetime | None:
         n'existe pas encore ou si le programme n'y figure pas (première
         exécution).
     """
-    from sqlalchemy import inspect, text
-
     if not inspect(engine).has_table(config.STATE_TABLE):
         return None
     with engine.connect() as conn:
@@ -40,7 +38,7 @@ def read_watermark(engine: "Engine", program_short: str) -> datetime | None:
     return row[0] if row else None
 
 
-def write_watermark(engine: "Engine", program_short: str, ts: datetime) -> None:
+def write_watermark(engine: Engine, program_short: str, ts: datetime) -> None:
     """Enregistre l'instant d'exécution comme nouveau filigrane du programme.
 
     Crée la table d'état au besoin et fait un upsert (``ON CONFLICT``) sur la
@@ -55,8 +53,6 @@ def write_watermark(engine: "Engine", program_short: str, ts: datetime) -> None:
     ts : datetime
         Horodatage à mémoriser (typiquement le début du run).
     """
-    from sqlalchemy import text
-
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -75,7 +71,7 @@ def write_watermark(engine: "Engine", program_short: str, ts: datetime) -> None:
 
 
 def upsert_events(
-    engine: "Engine",
+    engine: Engine,
     table: str,
     df: pl.DataFrame,
     key: str = config.UPSERT_KEY,
@@ -105,15 +101,11 @@ def upsert_events(
     int
         Nombre de lignes écrites (0 si ``df`` est vide).
     """
-    from sqlalchemy import inspect, text
-
     if df.is_empty():
         return 0
 
     staging = f"{table}__staging"
-    df.write_database(
-        staging, connection=engine, if_table_exists="replace", engine="sqlalchemy"
-    )
+    df.write_database(staging, connection=engine, if_table_exists="replace", engine="sqlalchemy")
 
     insp = inspect(engine)
     with engine.begin() as conn:
@@ -127,9 +119,7 @@ def upsert_events(
         for col in staging_cols:
             if col["name"] not in target_cols:
                 col_type = col["type"].compile(engine.dialect)
-                conn.execute(
-                    text(f'ALTER TABLE "{table}" ADD COLUMN "{col["name"]}" {col_type}')
-                )
+                conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{col["name"]}" {col_type}'))
                 target_cols.add(col["name"])
 
         common = [c["name"] for c in staging_cols if c["name"] in target_cols]
@@ -140,10 +130,6 @@ def upsert_events(
                 f'DELETE FROM "{table}" WHERE "{key}" IN (SELECT DISTINCT "{key}" FROM "{staging}")'
             )
         )
-        conn.execute(
-            text(
-                f'INSERT INTO "{table}" ({col_list}) SELECT {col_list} FROM "{staging}"'
-            )
-        )
+        conn.execute(text(f'INSERT INTO "{table}" ({col_list}) SELECT {col_list} FROM "{staging}"'))
         conn.execute(text(f'DROP TABLE "{staging}"'))
     return df.height
