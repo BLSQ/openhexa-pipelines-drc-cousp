@@ -54,3 +54,4 @@ def test_validate_date_rejette_format_invalide():
         pipeline.validate_date("31/05/2026", "occurred_after")
     pipeline.validate_date("2026-05-31", "occurred_after")  # ok
     pipeline.validate_date(None, "occurred_after")  # ok
+
