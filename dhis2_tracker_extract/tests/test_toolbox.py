@@ -108,7 +108,9 @@ class _FakeApi:
         items = self.data[endpoint]
         for name in (key, self.id_keys[endpoint]):
             if name in params:
-                wanted = set(params[name].split(";"))
+                # Comme DHIS2 : virgule pour les paramètres >= 2.41, point-virgule avant.
+                sep = "," if name == key else ";"
+                wanted = set(params[name].split(sep))
                 items = [i for i in items if i[self.id_keys[endpoint]] in wanted]
         size, page = params["pageSize"], params["page"]
         return {key: items[(page - 1) * size : page * size], "pager": {"page": page}}
@@ -160,7 +162,7 @@ def test_get_tracked_entities_filtre_par_uid_et_par_lots(monkeypatch):
     df = toolbox.get_tracked_entities(tracker, "P", tracked_entity_ids=["t1", "t4", "t8"])
     assert sorted(df["tracked_entity_id"].to_list()) == ["t1", "t4", "t8"]
     sent = [c[1]["trackedEntities"] for c in tracker.api.calls]
-    assert sent == ["t1;t4", "t8"]
+    assert sent == ["t1,t4", "t8"]
 
 
 def test_get_enrollments_liste_vide_aucun_appel():
@@ -172,9 +174,10 @@ def test_get_enrollments_liste_vide_aucun_appel():
 
 def test_parametres_avant_2_41():
     tracker = _fake(5, version="2.40.5")
-    toolbox.get_enrollments(tracker, "P", enrollment_ids=["e2"])
+    df = toolbox.get_enrollments(tracker, "P", enrollment_ids=["e2", "e3"])
     params = tracker.api.calls[0][1]
-    assert params["enrollment"] == "e2"
+    assert params["enrollment"] == "e2;e3"
+    assert sorted(df["enrollment_id"].to_list()) == ["e2", "e3"]
     assert params["ouMode"] == "DESCENDANTS"
     assert "enrollments" not in params
     assert "orgUnitMode" not in params
@@ -182,9 +185,10 @@ def test_parametres_avant_2_41():
 
 def test_parametres_a_partir_de_2_41():
     tracker = _fake(5)
-    toolbox.get_enrollments(tracker, "P", enrollment_ids=["e2"])
+    df = toolbox.get_enrollments(tracker, "P", enrollment_ids=["e2", "e3"])
     params = tracker.api.calls[0][1]
-    assert params["enrollments"] == "e2"
+    assert params["enrollments"] == "e2,e3"
+    assert sorted(df["enrollment_id"].to_list()) == ["e2", "e3"]
     assert params["orgUnitMode"] == "DESCENDANTS"
 
 

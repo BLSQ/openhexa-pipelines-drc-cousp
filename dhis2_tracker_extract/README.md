@@ -87,6 +87,7 @@ sur une autre.
   |---|---|---|
   | Périmètre org unit | `ouMode` | `orgUnitMode` |
   | Filtre TEI / enrôlements par UID | `trackedEntity` / `enrollment` | `trackedEntities` / `enrollments` |
+| Séparateur des listes d'UID | `;` | `,` |
   | Clé de la liste dans la réponse | `instances` | `events` / `enrollments` / `trackedEntities` |
 
 - **Colonnes d'attributs TEI** : nommées d'après le `displayName`, qui dépend de

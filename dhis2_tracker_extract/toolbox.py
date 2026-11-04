@@ -62,15 +62,23 @@ def tracker_api_names(tracker: DHIS2) -> dict[str, str]:
     Returns
     -------
     dict[str, str]
-        ``{"ou_mode", "trackedEntities", "enrollments"}`` -> nom du paramètre.
+        ``{"ou_mode", "trackedEntities", "enrollments"}`` -> nom du paramètre,
+        et ``"uid_sep"`` -> séparateur des listes d'UID (``,`` à partir de 2.41,
+        ``;`` avant).
     """
     if dhis2_minor_version(tracker) >= 41:
         return {
             "ou_mode": "orgUnitMode",
             "trackedEntities": "trackedEntities",
             "enrollments": "enrollments",
+            "uid_sep": ",",
         }
-    return {"ou_mode": "ouMode", "trackedEntities": "trackedEntity", "enrollments": "enrollment"}
+    return {
+        "ou_mode": "ouMode",
+        "trackedEntities": "trackedEntity",
+        "enrollments": "enrollment",
+        "uid_sep": ";",
+    }
 
 
 def slugify(text: str, max_length: int = 47) -> str:
@@ -337,11 +345,12 @@ def _fetch_by_uids(
         return _paginate(tracker, endpoint, key, {**params, "pageSize": page_size})
     items: list[dict] = []
     size = config.UID_BATCH_SIZE
+    sep = tracker_api_names(tracker)["uid_sep"]
     for i in range(0, len(uids), size):
         batch = uids[i : i + size]
         response = tracker.api.get(
             endpoint,
-            params={**params, uid_param: ";".join(batch), "page": 1, "pageSize": len(batch)},
+            params={**params, uid_param: sep.join(batch), "page": 1, "pageSize": len(batch)},
         )
         items.extend(_items(response, key))
     return items
