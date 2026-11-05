@@ -13,6 +13,61 @@ from openhexa.sdk.datasets.dataset import DatasetVersion
 from openhexa.toolbox.dhis2 import DHIS2
 
 
+def colonnes_presentes(db_url: str, table_name: str, colonnes: list[str]) -> list[str]:
+    """Restreint ``colonnes`` à celles qui existent dans la table.
+
+    Returns:
+        Les colonnes de ``colonnes`` présentes dans ``public.table_name``, dans
+        l'ordre demandé.
+    """
+    existantes = set(
+        pl.read_database_uri(
+            "SELECT column_name FROM information_schema.columns "
+            f"WHERE table_schema = 'public' AND table_name = '{table_name}'",
+            uri=db_url,
+        ).get_column("column_name")
+    )
+    return [col for col in colonnes if col in existantes]
+
+
+def attributs_presents(db_url: str, table_name: str, attributs: list[str]) -> list[str]:
+    """Restreint les attributs TEI demandés à ceux présents dans la table.
+
+    L'extraction ne crée la colonne d'un attribut que si au moins une entité
+    suivie le renseigne : après une recréation de la table, un attribut jamais
+    saisi peut manquer. On l'omet de la requête (et on le signale) pour ne pas
+    la faire échouer ; l'appelant le recrée à NULL.
+
+    Returns:
+        Les attributs présents, dans l'ordre demandé.
+    """
+    presents = colonnes_presentes(db_url, table_name, attributs)
+    manquants = [att for att in attributs if att not in presents]
+    if manquants:
+        current_run.log_warning(
+            f"« {table_name} » : {len(manquants)} attribut(s) TEI absent(s) de la table, "
+            f"traité(s) comme non renseigné(s) ({', '.join(manquants)})."
+        )
+    return presents
+
+
+def exclure_lignes_supprimees(df: pl.DataFrame) -> pl.DataFrame:
+    """Retire les lignes marquées supprimées, puis les drapeaux de suppression.
+
+    Seul un drapeau explicitement vrai exclut la ligne : un drapeau nul vaut
+    « non supprimé ». Sans drapeau (table écrite par l'extraction actuelle, qui
+    ne stocke ni lignes ni colonnes de suppression), la table est inchangée.
+
+    Returns:
+        ``df`` sans les lignes supprimées ni les colonnes config.DELETED_FLAGS.
+    """
+    flags = [col for col in config.DELETED_FLAGS if col in df.columns]
+    if not flags:
+        return df
+    supprime = pl.any_horizontal(pl.col(col).fill_null(False) for col in flags)
+    return df.filter(~supprime).drop(flags)
+
+
 def parse_geo(geo_str: object) -> dict[str, str | None]:
     """Extrait province, zone_sante et aire_sante depuis la hiérarchie DHIS2.
 
