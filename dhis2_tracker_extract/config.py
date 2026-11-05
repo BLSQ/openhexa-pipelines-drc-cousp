@@ -13,6 +13,15 @@ TEI_PAGE_SIZE = 250
 
 UID_BATCH_SIZE = 200
 
+EVENT_FIELDS = (
+    "event,status,program,trackedEntity,programStage,enrollment,orgUnit,"
+    "occurredAt,createdAt,updatedAt,deleted,dataValues[dataElement,value]"
+)
+
+UPSERT_CHUNK_SIZE = 200_000
+
+LOG_EVERY_PAGES = 10
+
 MIN_DHIS2_MINOR = 38
 
 MULTI_TEXT_TYPE = "MULTI_TEXT"

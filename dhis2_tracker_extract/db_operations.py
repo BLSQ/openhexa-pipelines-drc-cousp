@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -75,6 +76,8 @@ def upsert_events(
     table: str,
     df: pl.DataFrame,
     key: str = config.UPSERT_KEY,
+    chunk_size: int = config.UPSERT_CHUNK_SIZE,
+    log: Callable[[str], None] | None = None,
 ) -> int:
     """Insère/met à jour ``df`` dans ``table`` au grain ``key`` (``event_id``).
 
@@ -83,6 +86,10 @@ def upsert_events(
     écriture dans une table de staging, suppression des clés correspondantes dans
     la cible, puis insertion. À la première écriture, la staging devient
     directement la table cible.
+
+    La staging est écrite par tranches de ``chunk_size`` lignes : chaque
+    tranche est convertie en pandas séparément, ce qui borne la mémoire. La
+    cible n'est modifiée qu'à la fin, dans une seule transaction.
 
     Parameters
     ----------
@@ -95,6 +102,10 @@ def upsert_events(
         :func:`toolbox.extract_tracker`).
     key : str, optional
         Clé d'unicité de l'upsert (défaut : ``event_id``).
+    chunk_size : int, optional
+        Nombre de lignes par tranche écrite dans la staging.
+    log : Callable[[str], None], optional
+        Journalise la progression de l'écriture.
 
     Returns
     -------
@@ -105,7 +116,16 @@ def upsert_events(
         return 0
 
     staging = f"{table}__staging"
-    df.write_database(staging, connection=engine, if_table_exists="replace", engine="sqlalchemy")
+    n_chunks = -(-df.height // chunk_size)
+    for i, chunk in enumerate(df.iter_slices(chunk_size), start=1):
+        chunk.write_database(
+            staging,
+            connection=engine,
+            if_table_exists="replace" if i == 1 else "append",
+            engine="sqlalchemy",
+        )
+        if log:
+            log(f"Staging {table} : tranche {i}/{n_chunks} écrite")
 
     insp = inspect(engine)
     with engine.begin() as conn:
@@ -126,9 +146,7 @@ def upsert_events(
         col_list = ", ".join(f'"{c}"' for c in common)
 
         conn.execute(
-            text(
-                f'DELETE FROM "{table}" WHERE "{key}" IN (SELECT DISTINCT "{key}" FROM "{staging}")'
-            )
+            text(f'DELETE FROM "{table}" WHERE "{key}" IN (SELECT DISTINCT "{key}" FROM "{staging}")')
         )
         conn.execute(text(f'INSERT INTO "{table}" ({col_list}) SELECT {col_list} FROM "{staging}"'))
         conn.execute(text(f'DROP TABLE "{staging}"'))

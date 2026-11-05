@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import resource
+import sys
+from collections.abc import Callable
 from datetime import datetime, UTC
+from pathlib import Path
 
 import config
 import db_operations
@@ -85,11 +89,12 @@ def dhis2_tracker_extract_pipeline(
     current_run.log_info(f"Instance DHIS2 {toolbox.check_dhis2_version(tracker)}")
     programs = toolbox.get_programs(tracker, program_uids)
 
-    current_run.log_info("Chargement des métadonnées (data elements, options, géo)…")
+    log_step("Chargement des métadonnées (data elements, options, géo)…")
     df_stage_de = toolbox.get_program_stage_data_elements(tracker, program_uids)
     df_options = toolbox.get_option_sets(tracker)
     df_org_levels = toolbox.get_org_unit_levels(tracker)
     de_options_map, multi_de = toolbox.build_value_decoder(df_stage_de, df_options)
+    log_step(f"Métadonnées : {df_stage_de.height} data elements, {df_org_levels.height} org units")
 
     for program_uid, short_name in programs.items():
         table = f"{short_name}_events"
@@ -102,33 +107,117 @@ def dhis2_tracker_extract_pipeline(
             if manual_window
             else ("complet" if updated_after is None else f"incrémental depuis {updated_after}")
         )
-        current_run.log_info(f"Extraction {short_name} ({program_uid}) — {mode}…")
+        log_step(f"Extraction {short_name} ({program_uid}) — {mode}…")
 
-        df = toolbox.extract_tracker(
-            tracker,
-            program_uid,
-            df_stage_de=df_stage_de,
-            de_options_map=de_options_map,
-            multi_de=multi_de,
-            df_org_levels=df_org_levels,
-            org_unit_parent=org_unit_parent,
-            occurred_after=occurred_after if manual_window else None,
-            occurred_before=occurred_before if manual_window else None,
-            updated_after=updated_after,
-        )
+        def log(msg: str, short_name: str = short_name) -> None:
+            log_step(f"{short_name} : {msg}")
 
-        if df.is_empty():
-            current_run.log_info(f"{short_name} : aucun événement nouveau/modifié.")
-        else:
-            n = db_operations.upsert_events(engine, table, df)
-            current_run.add_database_output(table)
-            current_run.log_info(
-                f"{short_name} : {n} lignes upsertées "
-                f"({df['tracked_entity_id'].n_unique()} cas) -> table {table}"
+        step = ["extraction"]
+        try:
+            extract_and_upsert(
+                tracker,
+                engine,
+                program_uid,
+                table,
+                step,
+                log,
+                df_stage_de=df_stage_de,
+                de_options_map=de_options_map,
+                multi_de=multi_de,
+                df_org_levels=df_org_levels,
+                org_unit_parent=org_unit_parent,
+                occurred_after=occurred_after if manual_window else None,
+                occurred_before=occurred_before if manual_window else None,
+                updated_after=updated_after,
             )
+        except Exception as exc:
+            current_run.log_error(
+                f"{short_name} : échec pendant l'{step[0]} — {type(exc).__name__}: {str(exc)[:500]}"
+            )
+            raise
 
         if not manual_window:
             db_operations.write_watermark(engine, short_name, run_started_at)
+
+
+def extract_and_upsert(
+    tracker: DHIS2,
+    engine: Engine,
+    program_uid: str,
+    table: str,
+    step: list[str],
+    log: Callable[[str], None],
+    **extract_kwargs: object,
+) -> None:
+    """Extrait un programme puis upsert le résultat dans sa table.
+
+    La table extraite est locale à cette fonction : elle est libérée à son
+    retour, avant le programme suivant (deux tables ne coexistent pas).
+
+    Parameters
+    ----------
+    tracker : DHIS2
+        Client DHIS2 authentifié.
+    engine : Engine
+        Moteur SQLAlchemy de la base du workspace.
+    program_uid : str
+        UID du programme tracker.
+    table : str
+        Table cible.
+    step : list[str]
+        Étape en cours (``step[0]``), mise à jour pour le message d'erreur.
+    log : Callable[[str], None]
+        Journalisation des étapes.
+    **extract_kwargs : object
+        Arguments transmis à :func:`toolbox.extract_tracker`.
+    """
+    df = toolbox.extract_tracker(tracker, program_uid, log=log, **extract_kwargs)
+    if df.is_empty():
+        log("aucun événement nouveau/modifié.")
+        return
+    step[0] = "écriture en base"
+    n_cases = df["tracked_entity_id"].n_unique()
+    n = db_operations.upsert_events(engine, table, df, log=log)
+    current_run.add_database_output(table)
+    log(f"{n} lignes upsertées ({n_cases} cas) -> table {table}")
+
+
+def memory_mb() -> tuple[float, float]:
+    """Mémoire du processus : résidente actuelle et pic, en Mo.
+
+    La valeur courante vient de ``/proc/self/statm`` (Linux, cas des pods
+    OpenHexa) ; ailleurs, on retombe sur le pic.
+
+    Returns
+    -------
+    tuple[float, float]
+        ``(rss_mb, peak_mb)``.
+    """
+    peak_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # ru_maxrss est en octets sous macOS, en Ko sous Linux.
+    peak = peak_kb / 1024 / (1024 if sys.platform == "darwin" else 1)
+    try:
+        resident_pages = int(Path("/proc/self/statm").read_text(encoding="ascii").split()[1])
+        rss = resident_pages * resource.getpagesize() / 1024**2
+    except OSError:
+        rss = peak
+    return rss, peak
+
+
+def log_step(msg: str) -> None:
+    """Journalise une étape avec la mémoire courante et le pic du processus.
+
+    En cas d'arrêt brutal (dépassement de la limite mémoire du pod, qui ne
+    laisse aucune trace Python), le dernier message situe l'étape et la mémoire
+    atteinte.
+
+    Parameters
+    ----------
+    msg : str
+        Message d'étape.
+    """
+    rss, peak = memory_mb()
+    current_run.log_info(f"{msg} [RAM {rss:.0f} Mo, pic {peak:.0f} Mo]")
 
 
 def incremental_watermark(
