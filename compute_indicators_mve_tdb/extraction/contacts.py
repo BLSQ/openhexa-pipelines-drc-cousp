@@ -11,6 +11,7 @@ from utils import attributs_presents, colonnes_presentes, exclure_lignes_supprim
 def load_contacts_events(
     db_url: str,
     table_name: str = config.CONTACTS_EVENTS_TABLE,
+    data_elements: list[str] | None = None,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Charge les événements de suivi des contacts et les attributs TEI.
 
@@ -25,11 +26,19 @@ def load_contacts_events(
     Args:
         db_url: URI de connexion à la base du workspace.
         table_name: Table source (format long du tracker de suivi des contacts).
+        data_elements: Data elements à lire ; par défaut ceux de
+            config.DICO_DE_MAPPING_CONTACTS. Liste vide = tous (LLN nominative).
 
     Returns:
         Les événements bruts (grain événement x data element) et les attributs TEI.
     """
-    data_elements = ", ".join(f"'{de}'" for de in config.DICO_DE_MAPPING_CONTACTS)
+    if data_elements is None:
+        data_elements = list(config.DICO_DE_MAPPING_CONTACTS)
+    filtre_de = (
+        'WHERE "data_element_id" IN ({})'.format(", ".join(f"'{de}'" for de in data_elements))
+        if data_elements
+        else ""
+    )
 
     colonnes = [
         "event_id",
@@ -45,8 +54,7 @@ def load_contacts_events(
     ]
     projection = ", ".join(f'"{colonne}"' for colonne in colonnes)
     events = pl.read_database_uri(
-        f'SELECT {projection} FROM "public"."{table_name}" '
-        f'WHERE "data_element_id" IN ({data_elements})',
+        f'SELECT {projection} FROM "public"."{table_name}" {filtre_de}',
         uri=db_url,
     ).with_columns(
         pl.col("enrolled_at").cast(pl.Date, strict=False),

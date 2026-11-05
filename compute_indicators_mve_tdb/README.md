@@ -58,8 +58,9 @@ faire tuer un worker par l'OOM killer (et donc de bloquer le run).
 | `date_min` | str (`YYYY-MM-DD`) | `2026-05-01` | Borne basse incluse sur `enrolled_at` |
 | `date_max` | str (`YYYY-MM-DD`) | *(vide)* | Borne haute incluse ; vide = aucun plafond |
 | `lln_dataset` | Dataset | `lln-tracker-mve` | Dataset où publier la LLN partagée |
+| `lln_nominatif_dataset` | Dataset | `lln-tracker-mve-nominatif` | Dataset **à accès restreint** où publier les LLN nominatives complètes |
 
-> `lln_dataset` a un défaut : le paramètre est donc **toujours résolu** et
+> `lln_dataset` et `lln_nominatif_dataset` ont un défaut : ils sont donc **toujours résolus** et
 > l'export a lieu à chaque run. Le slug doit exister dans le workspace, sinon le
 > run échoue à la validation des paramètres, avant toute exécution.
 
@@ -121,6 +122,37 @@ issue et prélèvement PCI (`issue_cas_pci`, `date_deces_issue_pci`,
 `resultat_prelevement_pci`). Données brutes uniquement ; aucun indicateur dérivé
 ni table Superset modifiés.
 
+## Dataset produit — LLN nominatives
+
+Publiées dans le dataset `lln_nominatif_dataset` (accès restreint aux personnes
+habilitées), sous des noms de fichiers stables :
+
+| Fichier | Contenu |
+|---|---|
+| `lln_mve_notifications_nominatif.parquet` | LLN notifications partagée (mêmes lignes, mêmes colonnes) + **tous** les autres data elements et attributs TEI de `mve_notification_events` |
+| `lln_mve_contacts_nominatif.parquet` | LLN contacts partagée + **tous** les autres data elements et attributs TEI de `mve_contacts_events` (dont nom, téléphone et coordonnées géographiques du contact) |
+| `*_nominatif_metadata.json` | mêmes métadonnées que la LLN partagée, plus `dictionnaire_colonnes` : pour chaque colonne ajoutée, sa source (`data_element` ou `attribut_tei`), son UID et son libellé DHIS2 |
+
+Conventions des colonnes ajoutées :
+
+- **nom** : libellé DHIS2 normalisé (minuscules ASCII, `_`), ex. « MVE - Nom,
+  post nom et prénom du cas » → `mve_nom_post_nom_et_prenom_du_cas`. En cas de
+  collision avec une colonne existante, suffixe `_<uid>` (data element) ou
+  `_tei` (attribut). Le nom change si le libellé DHIS2 change : le
+  dictionnaire des métadonnées permet de retrouver la colonne par UID ;
+- **valeur** : texte tel qu'en base (`value_norm`, libellé d'option décodé),
+  sans typage : l'usage est laissé au consommateur ;
+- **grain** : celui de la LLN partagée (dernière valeur par data element) ;
+- **ordre** : colonnes de la LLN partagée, puis data elements, puis attributs,
+  chaque bloc trié par nom.
+
+Un attribut TEI est toute colonne de la table source absente de
+`config.COLONNES_NON_ATTRIBUTS` (et hors `level_*`). Si l'extraction ajoute un
+jour une colonne technique, l'ajouter à cet ensemble.
+
+Sans dataset cible, les parquets nominatifs sont **supprimés** (et non laissés
+dans les fichiers du workspace, visibles de tous ses membres).
+
 ### Drapeaux `is_*` et date de décès reconstruite
 
 En fin de schéma (`config.COLS_LLN_FLAGS`), `compute_lln_flags` ajoute les mêmes
@@ -165,9 +197,11 @@ tâches (orchestration) ; la logique métier est répartie par responsabilité :
 | `pipeline.py` | `@pipeline`, paramètres, tâches OpenHexa, `tache_robuste` |
 | `extraction/notifications.py` | lecture SQL de `mve_notification_events`, pivot au grain enrôlement, attributs TEI, fenêtre d'événements, résumé labo |
 | `extraction/contacts.py` | lecture SQL de `mve_contacts_events` (événements + attributs TEI) |
+| `extraction/catalogue.py` | libellés des data elements et lecture de tous les attributs TEI d'une table |
 | `lln/commun.py` | géographie canonisée (`joindre_geographie`), schéma publié, écriture parquet, métadonnées JSON |
 | `lln/notifications.py` | LLN notifications et drapeaux `is_*` |
 | `lln/contacts.py` | LLN du suivi des contacts |
+| `lln/nominatif.py` | LLN nominatives (colonnes supplémentaires, nommage, dictionnaire) |
 | `indicateurs/cas.py` | indicateurs au grain cas, date de décès reconstruite, liste de ligne `COD_MVE_Tracker_Individu` |
 | `indicateurs/agregats.py` | agrégats par axe temporel (dont `date_rapportage`) |
 | `geo.py` | unités d'organisation par niveau (géométries) et référentiel géographique |

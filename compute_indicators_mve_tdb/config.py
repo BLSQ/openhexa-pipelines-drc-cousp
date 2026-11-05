@@ -614,6 +614,50 @@ LLN_DATASET_META = "lln_mve_notifications_metadata.json"
 LLN_CONTACTS_FILE = "lln_mve_contacts.parquet"
 LLN_CONTACTS_META = "lln_mve_contacts_metadata.json"
 
+# LLN nominatives (dataset distinct, accès restreint) : LLN partagées + tous les
+# data elements et attributs TEI de la source, données personnelles comprises.
+LLN_NOMINATIF_FILE = "lln_mve_notifications_nominatif.parquet"
+LLN_NOMINATIF_META = "lln_mve_notifications_nominatif_metadata.json"
+LLN_CONTACTS_NOMINATIF_FILE = "lln_mve_contacts_nominatif.parquet"
+LLN_CONTACTS_NOMINATIF_META = "lln_mve_contacts_nominatif_metadata.json"
+
+# Colonnes des tables d'événements (format long) qui ne sont pas des attributs
+# TEI : événement, enrôlement, métadonnées des data elements, géographie
+# (les level_* sont exclus par motif). Toute autre colonne est un attribut.
+COLONNES_NON_ATTRIBUTS = {
+    "event_id",
+    "status",
+    "program_id",
+    "tracked_entity_id",
+    "program_stage_id",
+    "enrollment_id",
+    "organisation_unit_id",
+    "organisation_unit_id_tei",
+    "occurred_at",
+    "created_at",
+    "updated_at",
+    "deleted",
+    "data_element_id",
+    "value",
+    "value_norm",
+    "enrolled_at",
+    "enrollment_org_unit",
+    "enrollment_deleted",
+    "created_at_tei",
+    "updated_at_tei",
+    "program_stage_name",
+    "data_element_name",
+    "value_type",
+    "option_set_id",
+}
+
+CONFIDENTIALITE_NOMINATIF = (
+    "Liste linéaire nominative COMPLÈTE : en plus des colonnes de la LLN partagée, "
+    "tous les data elements et attributs d'entité suivie de la source, dont noms, "
+    "téléphones et coordonnées GPS. Accès strictement limité aux personnes habilitées ; "
+    "ne pas rediffuser."
+)
+
 # Schéma publié de la LLN des contacts (grain : un suivi journalier par ligne).
 # Le nom et le téléphone du contact (EXPR_TEI_CONTACTS) ainsi que ses
 # coordonnées géographiques (K9McVlOuryB) ne sont volontairement pas publiés.
