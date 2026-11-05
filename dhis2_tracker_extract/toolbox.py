@@ -441,6 +441,10 @@ def get_enrollments(
 ) -> pl.DataFrame:
     """Extrait les enrôlements d'un programme (date d'inscription par cas).
 
+    Les enrôlements supprimés (soft delete) sont aussi ramenés
+    (``includeDeleted``) pour publier ``enrollment_deleted`` : le pipeline des
+    indicateurs exclut les lignes dont ce drapeau est vrai **ou nul**.
+
     Parameters
     ----------
     tracker : DHIS2
@@ -459,15 +463,22 @@ def get_enrollments(
     -------
     pl.DataFrame
         Une ligne par enrôlement, colonnes : ``enrollment_id, enrolled_at,
-        enrollment_org_unit`` (``enrollment_id`` = clé de jointure côté
-        événements). DataFrame vide (schéma typé) si aucun enrôlement.
+        enrollment_org_unit, enrollment_deleted`` (``enrollment_id`` = clé de
+        jointure côté événements). DataFrame vide (schéma typé) si aucun
+        enrôlement.
     """
     names = tracker_api_names(tracker)
     enrollments = _fetch_by_uids(
         tracker,
         "tracker/enrollments",
         "enrollments",
-        {"program": program_uid, "orgUnit": org_unit_parent, names["ou_mode"]: "DESCENDANTS"},
+        {
+            "program": program_uid,
+            "orgUnit": org_unit_parent,
+            names["ou_mode"]: "DESCENDANTS",
+            "includeDeleted": "true",
+            "fields": "enrollment,enrolledAt,orgUnit,deleted",
+        },
         names["enrollments"],
         enrollment_ids,
         page_size,
@@ -479,6 +490,7 @@ def get_enrollments(
                 "enrollment_id": pl.String,
                 "enrolled_at": pl.Datetime,
                 "enrollment_org_unit": pl.String,
+                "enrollment_deleted": pl.Boolean,
             }
         )
     rows = [
@@ -486,6 +498,8 @@ def get_enrollments(
             "enrollment_id": e.get("enrollment"),
             "enrolled_at": e.get("enrolledAt"),
             "enrollment_org_unit": e.get("orgUnit"),
+            # Un enrôlement renvoyé sans le champ n'est pas supprimé.
+            "enrollment_deleted": bool(e.get("deleted")),
         }
         for e in enrollments
     ]
@@ -860,6 +874,14 @@ def extract_tracker(
         tracked_entity_ids=_distinct_ids(df_events, "tracked_entity_id"),
     )
     log(f"Enrôlements : {df_enrollments.height} ; tracked entities : {df_tei.height}")
+    n_sans_enrolement = (
+        df_events.filter(~pl.col("enrollment_id").is_in(df_enrollments["enrollment_id"].implode()))
+        .get_column("enrollment_id")
+        .n_unique()
+    )
+    if n_sans_enrolement:
+        # enrollment_deleted restera nul : ces lignes seront exclues en aval.
+        log(f"{n_sans_enrolement} enrôlement(s) référencé(s) par les événements introuvable(s)")
 
     df_events = add_value_norm(df_events, de_options_map, multi_de)
     log("Décodage value_norm terminé")

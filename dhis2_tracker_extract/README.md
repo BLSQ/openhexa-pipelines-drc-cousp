@@ -155,6 +155,7 @@ Une ligne par couple (événement × data element). Colonnes principales :
 | `organisation_unit_id`, `level_{n}_name` | événement / hiérarchie géo | Org unit et libellés de niveau (province, ZS, AS…) |
 | `occurred_at`, `created_at`, `updated_at` | événement | Horodatages |
 | `enrolled_at`, `enrollment_org_unit` | enrôlement | Date et org unit d'inscription |
+| `enrollment_deleted` | enrôlement | Enrôlement supprimé (soft delete). Le pipeline des indicateurs exclut les lignes où il est vrai **ou nul** (enrôlement introuvable) |
 | `data_element_id`, `data_element_name`, `value_type`, `option_set_id` | événement / métadonnées | Data element |
 | `value` | événement | Valeur brute (code stocké) |
 | `value_norm` | calculé | Valeur décodée (libellé d'option ; texte/date/numérique conservés tels quels) |
