@@ -24,6 +24,7 @@ import config
 import polars as pl
 from export.base_de_donnees import export_to_database
 from export.dataset import publier_version, publish_data_to_dataset, save_data_for_dataset
+from extraction.catalogue import load_data_element_names, load_tei_attributes
 from extraction.contacts import load_contacts_events
 from extraction.notifications import (
     build_event_dates,
@@ -37,6 +38,7 @@ from indicateurs.agregats import aggregate_indicators
 from indicateurs.cas import build_line_list_individu, compute_indicators, consolidate_line_list
 from lln.commun import build_lln_metadata, write_lln_parquet
 from lln.contacts import build_contacts_line_list
+from lln.nominatif import ajouter_colonnes_nominatives, pivot_data_elements
 from lln.notifications import build_line_list
 from openhexa.sdk import Dataset, DHIS2Connection, current_run, parameter, pipeline, workspace
 from openhexa.toolbox.dhis2 import DHIS2, dataframe
@@ -103,11 +105,21 @@ def tache_robuste(fonction: Callable) -> Callable:
     required=False,
     default="lln-tracker-mve",
 )
+@parameter(
+    "lln_nominatif_dataset",
+    type=Dataset,
+    name="Dataset LLN nominative",
+    help="Dataset à accès restreint pour les LLN nominatives complètes (tous les data "
+    "elements et attributs, données personnelles comprises).",
+    required=False,
+    default="lln-tracker-mve-nominatif",
+)
 def compute_indicators_mve_tdb(
     dhis_con: DHIS2Connection,
     date_min: str,
     date_max: str | None = None,
     lln_dataset: Dataset | None = None,
+    lln_nominatif_dataset: Dataset | None = None,
 ) -> None:
     """Calcule et publie les indicateurs du tableau de bord MVE."""
     fenetre_min = date.fromisoformat(date_min)
@@ -137,6 +149,7 @@ def compute_indicators_mve_tdb(
     export_tables(case_data, ou_zone_sante, ou_aire_sante, ou_provinces, db_url)
 
     export_to_dataset(case_data, contacts_data, lln_dataset)
+    export_nominatif_to_dataset(case_data, contacts_data, lln_nominatif_dataset)
 
 
 @compute_indicators_mve_tdb.task
@@ -178,7 +191,8 @@ def build_case_data(
         last_analytics_run: Date de la dernière exécution des analyses, ou None.
 
     Returns:
-        Les indicateurs au grain cas, le chemin du parquet LLN et ses métadonnées.
+        Les indicateurs au grain cas, les chemins des parquets LLN (partagée et
+        nominative) et leurs métadonnées.
     """
     events = load_notification_events(db_url, date_min, date_max, last_analytics_run)
     tei = extract_tei_attributes(events)
@@ -192,6 +206,29 @@ def build_case_data(
     lln_path = write_lln_parquet(lln)
     metadata = build_lln_metadata(lln, date_min, date_max, horodatage)
 
+    # Sortie 1 bis - LLN nominative : LLN partagée + tous les data elements et
+    # attributs TEI (dataset à accès restreint)
+    de_names = load_data_element_names(db_url, config.EVENTS_TABLE)
+    de_supplementaires = [
+        de for de in enrollments.columns if de in de_names and de not in config.DATASET_LLN_MAPPING
+    ]
+    nominatif, dictionnaire = ajouter_colonnes_nominatives(
+        lln,
+        enrollments.select("enrollment_id", *de_supplementaires),
+        "enrollment_id",
+        de_names,
+        load_tei_attributes(db_url, config.EVENTS_TABLE, exclues=list(config.DICO_TEI)),
+    )
+    nominatif_path = write_lln_parquet(nominatif, config.LLN_NOMINATIF_FILE)
+    nominatif_metadata = build_lln_metadata(
+        nominatif,
+        date_min,
+        date_max,
+        horodatage,
+        confidentialite=config.CONFIDENTIALITE_NOMINATIF,
+    ) | {"dictionnaire_colonnes": dictionnaire}
+    del nominatif
+
     # Sortie 2 - indicateurs au grain cas (tables du tableau de bord)
     line_list = consolidate_line_list(enrollments, tei, lab_summary)
     indicators = compute_indicators(line_list)
@@ -201,6 +238,9 @@ def build_case_data(
         "lln_path": str(lln_path),
         "lln_meta_file": config.LLN_DATASET_META,
         "lln_metadata": metadata,
+        "nominatif_path": str(nominatif_path),
+        "nominatif_meta_file": config.LLN_NOMINATIF_META,
+        "nominatif_metadata": nominatif_metadata,
         "horodatage": horodatage.strftime("%Y%m%d-%H%M"),
     }
 
@@ -220,10 +260,16 @@ def build_contacts_data(org_units: pl.DataFrame, db_url: str) -> CaseData:
         db_url: URI de connexion à la base du workspace.
 
     Returns:
-        Le chemin du parquet LLN contacts et ses métadonnées.
+        Les chemins des parquets LLN contacts (partagée et nominative) et leurs
+        métadonnées.
     """
-    events, tei = load_contacts_events(db_url)
-    lln = build_contacts_line_list(events, tei, org_units)
+    # Tous les data elements : la LLN partagée n'en garde que ceux de
+    # config.DICO_DE_MAPPING_CONTACTS, la LLN nominative publie les autres.
+    events, tei = load_contacts_events(db_url, data_elements=[])
+    mappes = list(config.DICO_DE_MAPPING_CONTACTS)
+    lln = build_contacts_line_list(
+        events.filter(pl.col("data_element_id").is_in(mappes)), tei, org_units
+    )
     export_to_database(lln, config.CONTACTS_TABLE, db_url)
     lln_path = write_lln_parquet(lln, config.LLN_CONTACTS_FILE)
     metadata = build_lln_metadata(
@@ -243,10 +289,34 @@ def build_contacts_data(org_units: pl.DataFrame, db_url: str) -> CaseData:
             "coordonnées géographiques du contact non publiés."
         ),
     )
+
+    attributs_publies = sorted(
+        {nom for expr in config.EXPR_TEI_CONTACTS for nom in expr.meta.root_names()}
+    )
+    nominatif, dictionnaire = ajouter_colonnes_nominatives(
+        lln,
+        pivot_data_elements(events, "event_id", exclus=mappes),
+        "event_id",
+        load_data_element_names(db_url, config.CONTACTS_EVENTS_TABLE),
+        load_tei_attributes(db_url, config.CONTACTS_EVENTS_TABLE, exclues=attributs_publies),
+    )
+    nominatif_path = write_lln_parquet(nominatif, config.LLN_CONTACTS_NOMINATIF_FILE)
+    nominatif_metadata = build_lln_metadata(
+        nominatif,
+        None,
+        None,
+        datetime.now(UTC),
+        source=metadata["source"],
+        grain=metadata["grain"],
+        confidentialite=config.CONFIDENTIALITE_NOMINATIF,
+    ) | {"dictionnaire_colonnes": dictionnaire}
     return {
         "lln_path": str(lln_path),
         "lln_meta_file": config.LLN_CONTACTS_META,
         "lln_metadata": metadata,
+        "nominatif_path": str(nominatif_path),
+        "nominatif_meta_file": config.LLN_CONTACTS_NOMINATIF_META,
+        "nominatif_metadata": nominatif_metadata,
     }
 
 
@@ -337,18 +407,64 @@ def export_to_dataset(
         contacts_data: Charge utile issue de build_contacts_data().
         dataset: Dataset cible, ou None pour ne rien publier.
     """
-    chemins = [Path(str(charge["lln_path"])) for charge in (case_data, contacts_data)]
+    publier_llns(case_data, contacts_data, dataset, "lln")
+
+
+@compute_indicators_mve_tdb.task
+@tache_robuste
+def export_nominatif_to_dataset(
+    case_data: CaseData,
+    contacts_data: CaseData,
+    dataset: Dataset | None,
+) -> None:
+    """Publie les LLN nominatives (notifications et contacts) dans leur dataset.
+
+    Sans dataset cible, les parquets nominatifs sont supprimés plutôt que
+    laissés dans les fichiers du workspace, visibles de tous ses membres.
+
+    Args:
+        case_data: Charge utile issue de build_case_data().
+        contacts_data: Charge utile issue de build_contacts_data().
+        dataset: Dataset cible (accès restreint), ou None pour ne rien publier.
+    """
+    publier_llns(case_data, contacts_data, dataset, "nominatif", supprimer_sans_dataset=True)
+
+
+def publier_llns(
+    case_data: CaseData,
+    contacts_data: CaseData,
+    dataset: Dataset | None,
+    prefixe: str,
+    supprimer_sans_dataset: bool = False,
+) -> None:
+    """Publie une paire de LLN (notifications, contacts) et leurs métadonnées.
+
+    Args:
+        case_data: Charge utile issue de build_case_data().
+        contacts_data: Charge utile issue de build_contacts_data().
+        dataset: Dataset cible, ou None pour ne rien publier.
+        prefixe: Clés des charges utiles à publier (``lln`` ou ``nominatif`` :
+            ``{prefixe}_path``, ``{prefixe}_meta_file``, ``{prefixe}_metadata``).
+        supprimer_sans_dataset: Supprime les parquets quand ``dataset`` est None.
+    """
+    charges = (case_data, contacts_data)
+    chemins = [Path(str(charge[f"{prefixe}_path"])) for charge in charges]
     if dataset is None:
-        current_run.log_info(
-            f"Aucun dataset cible : LLN laissées dans « {', '.join(map(str, chemins))} »."
-        )
+        if supprimer_sans_dataset:
+            for chemin in chemins:
+                chemin.unlink(missing_ok=True)
+            current_run.log_info(f"Aucun dataset cible : LLN « {prefixe} » non publiées, supprimées.")
+        else:
+            current_run.log_info(
+                f"Aucun dataset cible : LLN laissées dans « {', '.join(map(str, chemins))} »."
+            )
         return
 
     chemins_meta = []
-    for chemin, charge in zip(chemins, (case_data, contacts_data), strict=True):
-        chemin_meta = chemin.with_name(str(charge["lln_meta_file"]))
+    for chemin, charge in zip(chemins, charges, strict=True):
+        chemin_meta = chemin.with_name(str(charge[f"{prefixe}_meta_file"]))
         chemin_meta.write_text(
-            json.dumps(charge["lln_metadata"], indent=2, ensure_ascii=False),
+            json.dumps(charge[f"{prefixe}_metadata"], indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
         chemins_meta.append(chemin_meta)
