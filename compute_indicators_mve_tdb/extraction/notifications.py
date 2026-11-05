@@ -7,6 +7,7 @@ from datetime import date, datetime
 import config
 import polars as pl
 from openhexa.sdk import current_run
+from utils import attributs_presents, colonnes_presentes, exclure_lignes_supprimees
 
 
 def load_notification_events(
@@ -30,17 +31,18 @@ def load_notification_events(
     """
     colonnes = [
         "event_id",
-        "deleted",
         "tracked_entity_id",
         "enrollment_id",
         "enrollment_org_unit",
-        "enrollment_deleted",
         "enrolled_at",
         "occurred_at",
         "created_at",
         "data_element_id",
         "value_norm",
-        *config.DICO_TEI,
+        *attributs_presents(db_url, table_name, list(config.DICO_TEI)),
+        # Drapeaux de suppression, lus seulement s'ils existent encore (cf.
+        # config.DELETED_FLAGS)
+        *colonnes_presentes(db_url, table_name, config.DELETED_FLAGS),
     ]
     projection = ", ".join(f'"{colonne}"' for colonne in colonnes)
     # data_elements = ", ".join(f"'{de}'" for de in config.DE_UTILES)
@@ -51,25 +53,24 @@ def load_notification_events(
         f'SELECT {projection} FROM "public"."{table_name}" WHERE {" AND ".join(conditions)}',
         uri=db_url,
     )
-    df = df.rename(config.DICO_TEI).with_columns(
+    df = df.rename({att: nom for att, nom in config.DICO_TEI.items() if att in df.columns})
+    df = df.with_columns(
+        pl.lit(None, dtype=pl.String).alias(nom)
+        for nom in config.DICO_TEI.values()
+        if nom not in df.columns
+    ).with_columns(
         pl.col("enrolled_at").cast(pl.Date, strict=False),
         pl.col("date_notification").cast(pl.Datetime, strict=False),
         pl.col("date_debut_symptomes").cast(pl.Date, strict=False),
     )
     current_run.log_info(f"Événements de notification lus : {df.height} lignes brutes.")
-    # Événements et enrôlements supprimés dans DHIS2 (soft delete), ainsi que les
-    # enrôlements sans numéro Epid ni sexe : ils ne correspondent à aucun cas
-    # exploitable et gonflent les compteurs. Seul un drapeau de suppression
-    # explicitement vrai exclut la ligne : un drapeau nul (colonne non produite
-    # par la version d'extraction qui a écrit la ligne) vaut « non supprimé ».
-    # L'extraction ne stocke de toute façon plus les lignes supprimées : ce
-    # filtre n'est qu'un garde-fou.
-    df = df.filter(
-        (~pl.col("enrollment_deleted").fill_null(False))
-        & (~pl.col("deleted").fill_null(False))
-        & (pl.col("numero_epid").is_not_null())
-        & (pl.col("sexe").is_not_null())
-    ).drop(["enrollment_deleted", "deleted"])
+    # Événements et enrôlements supprimés dans DHIS2 (soft delete, seulement dans
+    # une table écrite par une ancienne extraction), ainsi que les enrôlements
+    # sans numéro Epid ni sexe : ils ne correspondent à aucun cas exploitable et
+    # gonflent les compteurs.
+    df = exclure_lignes_supprimees(df).filter(
+        pl.col("numero_epid").is_not_null() & pl.col("sexe").is_not_null()
+    )
     current_run.log_info(
         f"Événements de notification retenus : {df.height} lignes, après exclusion des "
         "enrôlements et événements supprimés, et des numero_epid / sexe non renseignés."

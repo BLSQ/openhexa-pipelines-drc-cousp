@@ -4,6 +4,11 @@ import polars as pl
 # Table source (événements du tracker, format long) lue dans la base du workspace
 EVENTS_TABLE = "mve_notification_events"
 
+# Drapeaux de suppression (soft delete) : l'extraction ne les écrit plus et
+# n'insère plus de ligne supprimée ; ils ne subsistent que dans une table écrite
+# par une version antérieure, jusqu'à son prochain rechargement complet.
+DELETED_FLAGS = ["deleted", "enrollment_deleted"]
+
 # Table source du programme « Fiche d'identification et suivi individuel des
 # contacts » (un seul program stage : un événement = un suivi journalier)
 CONTACTS_EVENTS_TABLE = "mve_contacts_events"
