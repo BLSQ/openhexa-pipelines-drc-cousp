@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable, Iterator
 
 import config
 import polars as pl
@@ -277,8 +278,11 @@ def _items(response: dict, key: str) -> list[dict]:
     return response.get(key, response.get("instances", []))
 
 
-def _paginate(tracker: DHIS2, endpoint: str, key: str, params: dict) -> list[dict]:
-    """Parcourt toutes les pages d'un endpoint tracker.
+def _paginate(tracker: DHIS2, endpoint: str, key: str, params: dict) -> Iterator[list[dict]]:
+    """Parcourt les pages d'un endpoint tracker, une page à la fois.
+
+    Générateur : seule la page courante est gardée en mémoire, ce qui borne le
+    JSON brut retenu quel que soit le volume du programme.
 
     Parameters
     ----------
@@ -292,22 +296,20 @@ def _paginate(tracker: DHIS2, endpoint: str, key: str, params: dict) -> list[dic
     params : dict
         Paramètres de requête, ``pageSize`` inclus (``page`` est géré ici).
 
-    Returns
-    -------
+    Yields
+    ------
     list[dict]
-        Concaténation des éléments de toutes les pages.
+        Éléments d'une page (la dernière peut être vide ou incomplète).
     """
-    items: list[dict] = []
     page = 1
     while True:
         response = tracker.api.get(endpoint, params={**params, "page": page})
         batch = _items(response, key)
-        items.extend(batch)
+        yield batch
         page_count = response.get("pager", {}).get("pageCount")
         if len(batch) < params["pageSize"] or (page_count and page >= page_count):
             break
         page += 1
-    return items
 
 
 def _fetch_by_uids(
@@ -342,7 +344,8 @@ def _fetch_by_uids(
         Éléments extraits.
     """
     if uids is None:
-        return _paginate(tracker, endpoint, key, {**params, "pageSize": page_size})
+        pages = _paginate(tracker, endpoint, key, {**params, "pageSize": page_size})
+        return [item for page in pages for item in page]
     items: list[dict] = []
     size = config.UID_BATCH_SIZE
     sep = tracker_api_names(tracker)["uid_sep"]
@@ -511,12 +514,17 @@ def get_events(
     occurred_before: str | None = None,
     updated_after: str | None = None,
     include_deleted: bool = True,
+    log: Callable[[str], None] | None = None,
 ) -> pl.DataFrame:
     """Extrait les événements d'un programme au format **long**.
 
     Une ligne par couple (événement, data element). Un événement sans data value
     produit tout de même une ligne (``data_element_id``/``value`` nuls) afin de ne
     perdre aucun événement.
+
+    Chaque page est convertie aussitôt en DataFrame (schéma fixe) puis libérée :
+    on ne garde ni le JSON brut ni des millions de dicts Python. Seuls les
+    champs utiles sont demandés (``config.EVENT_FIELDS``).
 
     Parameters
     ----------
@@ -536,6 +544,8 @@ def get_events(
     include_deleted : bool, optional
         Ramène aussi les événements supprimés (drapeau ``deleted``), pour
         propager les suppressions lors de l'upsert. Vrai par défaut.
+    log : Callable[[str], None], optional
+        Journalise la progression toutes les ``config.LOG_EVERY_PAGES`` pages.
 
     Returns
     -------
@@ -549,6 +559,7 @@ def get_events(
         "program": program_uid,
         "orgUnit": org_unit_parent,
         tracker_api_names(tracker)["ou_mode"]: "DESCENDANTS",
+        "fields": config.EVENT_FIELDS,
         "pageSize": page_size,
     }
     if occurred_after:
@@ -560,40 +571,81 @@ def get_events(
     if include_deleted:
         params["includeDeleted"] = "true"
 
-    rows: list[dict] = []
-    for event in _paginate(tracker, "tracker/events", "events", params):
-        common = {
-            "event_id": event.get("event"),
-            "status": event.get("status"),
-            "program_id": event.get("program"),
-            "tracked_entity_id": event.get("trackedEntity"),
-            "program_stage_id": event.get("programStage"),
-            "enrollment_id": event.get("enrollment"),
-            "organisation_unit_id": event.get("orgUnit"),
-            "occurred_at": event.get("occurredAt"),
-            "created_at": event.get("createdAt"),
-            "updated_at": event.get("updatedAt"),
-            "deleted": event.get("deleted"),
-        }
-        data_values = event.get("dataValues", [])
-        if not data_values:
-            rows.append({**common, "data_element_id": None, "value": None})
-        for dv in data_values:
-            rows.append(
-                {
-                    **common,
-                    "data_element_id": dv.get("dataElement"),
-                    "value": dv.get("value"),
-                }
-            )
+    frames: list[pl.DataFrame] = []
+    n_events = 0
+    pages = _paginate(tracker, "tracker/events", "events", params)
+    for n_page, events in enumerate(pages, start=1):
+        n_events += len(events)
+        if events:
+            frames.append(_events_page_to_frame(events))
+        if log and n_page % config.LOG_EVERY_PAGES == 0:
+            n_rows = sum(f.height for f in frames)
+            log(f"… {n_page} pages, {n_events} événements, {n_rows} lignes")
 
-    if not rows:
+    if not frames:
         return pl.DataFrame()
-    df = pl.DataFrame(rows)
+    df = pl.concat(frames, rechunk=True)
+    del frames
     return df.with_columns(
         pl.col(col).cast(pl.Datetime, strict=False).alias(col)
         for col in ("occurred_at", "created_at", "updated_at")
     )
+
+
+_EVENT_SCHEMA = {
+    "event_id": pl.String,
+    "status": pl.String,
+    "program_id": pl.String,
+    "tracked_entity_id": pl.String,
+    "program_stage_id": pl.String,
+    "enrollment_id": pl.String,
+    "organisation_unit_id": pl.String,
+    "occurred_at": pl.String,
+    "created_at": pl.String,
+    "updated_at": pl.String,
+    "deleted": pl.Boolean,
+    "data_element_id": pl.String,
+    "value": pl.String,
+}
+
+
+def _events_page_to_frame(events: list[dict]) -> pl.DataFrame:
+    """Convertit une page d'événements en lignes longues (schéma fixe).
+
+    Le schéma est imposé pour que toutes les pages se concatènent, même quand
+    une colonne est entièrement nulle sur une page.
+
+    Parameters
+    ----------
+    events : list[dict]
+        Événements bruts d'une page du tracker API.
+
+    Returns
+    -------
+    pl.DataFrame
+        Une ligne par (événement, data element), colonnes de ``_EVENT_SCHEMA``.
+    """
+    rows: list[tuple] = []
+    for event in events:
+        common = (
+            event.get("event"),
+            event.get("status"),
+            event.get("program"),
+            event.get("trackedEntity"),
+            event.get("programStage"),
+            event.get("enrollment"),
+            event.get("orgUnit"),
+            event.get("occurredAt"),
+            event.get("createdAt"),
+            event.get("updatedAt"),
+            event.get("deleted"),
+        )
+        data_values = event.get("dataValues", [])
+        if not data_values:
+            rows.append((*common, None, None))
+        for dv in data_values:
+            rows.append((*common, dv.get("dataElement"), dv.get("value")))
+    return pl.DataFrame(rows, schema=_EVENT_SCHEMA, orient="row")
 
 
 def build_value_decoder(
@@ -756,6 +808,7 @@ def extract_tracker(
     occurred_after: str | None = None,
     occurred_before: str | None = None,
     updated_after: str | None = None,
+    log: Callable[[str], None] | None = None,
 ) -> pl.DataFrame:
     """Extrait et enrichit un tracker complet -> table longue ``value_norm``.
 
@@ -783,6 +836,8 @@ def extract_tracker(
     updated_after : str, optional
         Filtre de dernière modification pour l'extraction incrémentale des
         soumissions corrigées (``YYYY-MM-DDTHH:MM:SS``).
+    log : Callable[[str], None], optional
+        Journalise chaque étape (volumes), pour situer un éventuel échec.
 
     Returns
     -------
@@ -790,6 +845,7 @@ def extract_tracker(
         Table longue enrichie, prête pour l'agrégation et l'upsert. DataFrame
         vide si aucun événement ne correspond aux filtres.
     """
+    log = log or (lambda _msg: None)
     df_events = get_events(
         tracker,
         program_uid,
@@ -797,9 +853,11 @@ def extract_tracker(
         occurred_after=occurred_after,
         occurred_before=occurred_before,
         updated_after=updated_after,
+        log=log,
     )
     if df_events.is_empty():
         return df_events
+    log(f"Événements : {df_events.height} lignes ({df_events['event_id'].n_unique()} événements)")
 
     df_enrollments = get_enrollments(
         tracker,
@@ -812,9 +870,13 @@ def extract_tracker(
         program_uid,
         tracked_entity_ids=_distinct_ids(df_events, "tracked_entity_id"),
     )
+    log(f"Enrôlements : {df_enrollments.height} ; tracked entities : {df_tei.height}")
 
     df_events = add_value_norm(df_events, de_options_map, multi_de)
-    return enrich_events(df_events, df_enrollments, df_tei, df_stage_de, df_org_levels)
+    log("Décodage value_norm terminé")
+    df = enrich_events(df_events, df_enrollments, df_tei, df_stage_de, df_org_levels)
+    log(f"Enrichissement : {df.height} lignes x {df.width} colonnes")
+    return df
 
 
 def _distinct_ids(df: pl.DataFrame, col: str) -> list[str]:

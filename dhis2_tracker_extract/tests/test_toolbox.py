@@ -250,3 +250,55 @@ def test_get_programs_erreurs():
         toolbox.get_programs(_programs_tracker([]), ["ABSENT"])
     with pytest.raises(ValueError, match="événementiels"):
         toolbox.get_programs(_programs_tracker(event_program), ["EV"])
+
+
+def test_get_events_pages_schema_fixe_et_fields(monkeypatch):
+    monkeypatch.setattr(toolbox.config, "LOG_EVERY_PAGES", 1)
+    pages = [
+        # Page 1 : colonnes deleted / trackedEntity entièrement nulles.
+        [
+            {"event": "ev1", "dataValues": [{"dataElement": "de1", "value": "a"}]},
+            {"event": "ev2", "dataValues": []},
+        ],
+        [
+            {
+                "event": "ev3",
+                "trackedEntity": "t1",
+                "deleted": True,
+                "occurredAt": "2026-11-01T10:00:00.000",
+                "dataValues": [
+                    {"dataElement": "de1", "value": "b"},
+                    {"dataElement": "de2", "value": "c"},
+                ],
+            }
+        ],
+    ]
+
+    class _Api:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, endpoint, params):
+            self.calls.append(dict(params))
+            return {"events": pages[params["page"] - 1]}
+
+    api = _Api()
+    messages: list[str] = []
+    df = toolbox.get_events(_FakeTracker(api), "P", page_size=2, log=messages.append)
+
+    assert df.height == 4  # ev1 x1, ev2 sans valeur x1, ev3 x2
+    assert df["event_id"].to_list() == ["ev1", "ev2", "ev3", "ev3"]
+    assert df["data_element_id"].to_list() == ["de1", None, "de1", "de2"]
+    assert df.schema["deleted"] == pl.Boolean
+    assert df.schema["occurred_at"] == pl.Datetime
+    assert api.calls[0]["fields"] == toolbox.config.EVENT_FIELDS
+    assert [c["page"] for c in api.calls] == [1, 2]
+    assert messages and "3 événements" in messages[-1]
+
+
+def test_get_events_aucun_evenement():
+    class _Api:
+        def get(self, endpoint, params):
+            return {"events": []}
+
+    assert toolbox.get_events(_FakeTracker(_Api()), "P").is_empty()

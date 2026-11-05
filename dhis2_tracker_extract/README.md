@@ -115,6 +115,30 @@ des clés correspondantes → insertion), de sorte que l'ajout/suppression de da
 values d'une soumission corrigée soit fidèlement reflété. Les nouvelles colonnes
 apparues côté source sont ajoutées automatiquement à la table cible.
 
+La staging est écrite **par tranches** de `config.UPSERT_CHUNK_SIZE` lignes
+(200 000 par défaut) pour borner la mémoire ; la table cible n'est modifiée qu'à
+la fin, dans une seule transaction. Un run interrompu laisse donc la table cible
+intacte (et le filigrane inchangé).
+
+### Mémoire et journalisation
+
+Le rechargement complet d'un gros programme (plusieurs millions de lignes
+longues) est le cas le plus exigeant en mémoire. Pour le tenir :
+
+- les événements sont lus **page par page** : chaque page est convertie en
+  DataFrame puis libérée, et seuls les champs utiles sont demandés
+  (`config.EVENT_FIELDS`, `dataValues[dataElement,value]`) ;
+- l'écriture en base se fait par tranches (ci-dessus) ;
+- chaque programme est libéré avant de passer au suivant.
+
+Chaque étape est journalisée avec la mémoire du processus, par exemple
+`mve_notification : Événements : 3340122 lignes (…) [RAM 2100 Mo, pic 2400 Mo]`.
+La progression des événements est logguée toutes les `config.LOG_EVERY_PAGES`
+pages. Un dépassement de la limite mémoire du pod tue le processus sans trace
+Python : le **dernier message** indique alors l'étape et la mémoire atteinte.
+Une erreur Python est, elle, signalée par un message d'erreur précisant le
+programme et l'étape (extraction ou écriture en base).
+
 Une table d'état `dhis2_extract_state` (`program`, `last_run_at`) porte le
 filigrane incrémental.
 
@@ -176,7 +200,7 @@ flowchart TD
 | `pipeline.py` | Point d'entrée OpenHexa : paramètres, orchestration, logique incrémentale |
 | `toolbox.py` | Extraction et enrichissement DHIS2 (événements, enrôlements, TEI, métadonnées, décodage) |
 | `db_operations.py` | Filigrane (lecture/écriture) et upsert au grain `event_id` |
-| `config.py` | Constantes : programmes par défaut, org unit racine, tailles de page et de lot, version DHIS2 minimale, clés |
+| `config.py` | Constantes : programmes par défaut, org unit racine, tailles de page, de lot d'UID et de tranche d'upsert, champs des événements, version DHIS2 minimale, clés |
 | `requirements.txt` | Dépendances Python |
 | `tests/` | Tests pytest (logique incrémentale, décodage, enrichissement) |
 
