@@ -319,3 +319,49 @@ def test_get_events_aucun_evenement() -> None:
             return {"events": []}
 
     assert toolbox.get_events(_FakeTracker(_Api()), "P").is_empty()
+
+
+def test_get_enrollments_enrollment_deleted() -> None:
+    """Le drapeau deleted des enrôlements est publié dans enrollment_deleted."""
+    tracker = _fake(3)
+    tracker.api.data["tracker/enrollments"][1]["deleted"] = True
+    df = toolbox.get_enrollments(tracker, "P", enrollment_ids=["e0", "e1", "e2"]).sort("enrollment_id")
+    params = tracker.api.calls[0][1]
+    assert params["includeDeleted"] == "true"
+    assert "deleted" in params["fields"]
+    assert df.schema["enrollment_deleted"] == pl.Boolean
+    assert df["enrollment_deleted"].to_list() == [False, True, False]
+
+
+def test_get_enrollments_schema_vide_avec_enrollment_deleted() -> None:
+    """Sans enrôlement, la table vide porte quand même enrollment_deleted."""
+    df = toolbox.get_enrollments(_fake(0), "P", enrollment_ids=["absent"])
+    assert df.is_empty()
+    assert df.schema["enrollment_deleted"] == pl.Boolean
+
+
+def test_enrich_events_porte_enrollment_deleted() -> None:
+    """L'enrichissement recopie enrollment_deleted sur chaque ligne d'événement."""
+    events = pl.DataFrame(
+        {
+            "event_id": ["e1", "e2"],
+            "enrollment_id": ["enr1", "inconnu"],
+            "tracked_entity_id": ["tei1", "tei1"],
+            "program_stage_id": ["S1", "S1"],
+            "data_element_id": ["de_sexe", "de_sexe"],
+            "organisation_unit_id": ["ou1", "ou1"],
+        }
+    )
+    enrollments = pl.DataFrame(
+        {
+            "enrollment_id": ["enr1"],
+            "enrolled_at": [None],
+            "enrollment_org_unit": ["ou1"],
+            "enrollment_deleted": [False],
+        }
+    )
+    out = toolbox.enrich_events(
+        events, enrollments, pl.DataFrame(), _stage_de(), pl.DataFrame({"id": ["ou1"]})
+    )
+    # Enrôlement introuvable : drapeau nul, la ligne sera exclue en aval.
+    assert out.sort("event_id")["enrollment_deleted"].to_list() == [False, None]
