@@ -46,8 +46,7 @@ def check_dhis2_version(tracker: DHIS2) -> str:
     """
     if dhis2_minor_version(tracker) < config.MIN_DHIS2_MINOR:
         raise ValueError(
-            f"Version DHIS2 non prise en charge : {tracker.version!r} "
-            f"(minimum 2.{config.MIN_DHIS2_MINOR})."
+            f"Version DHIS2 non prise en charge : {tracker.version!r} (minimum 2.{config.MIN_DHIS2_MINOR})."
         )
     return tracker.version
 
@@ -138,9 +137,7 @@ def get_programs(tracker: DHIS2, program_uids: list[str]) -> dict[str, str]:
     missing = [uid for uid in program_uids if uid not in found]
     if missing:
         raise ValueError(f"Programmes introuvables ou inaccessibles : {', '.join(missing)}.")
-    not_tracker = [
-        uid for uid in program_uids if found[uid].get("programType") != "WITH_REGISTRATION"
-    ]
+    not_tracker = [uid for uid in program_uids if found[uid].get("programType") != "WITH_REGISTRATION"]
     if not_tracker:
         raise ValueError(
             "Programmes sans inscription (programmes événementiels) non pris en charge : "
@@ -155,9 +152,7 @@ def get_programs(tracker: DHIS2, program_uids: list[str]) -> dict[str, str]:
     return programs
 
 
-def get_program_stage_data_elements(
-    tracker: DHIS2, program_uids: list[str] | None = None
-) -> pl.DataFrame:
+def get_program_stage_data_elements(tracker: DHIS2, program_uids: list[str] | None = None) -> pl.DataFrame:
     """Extrait le catalogue (program stage x data element) de l'instance.
 
     Parameters
@@ -175,9 +170,7 @@ def get_program_stage_data_elements(
         data_element_name, value_type, option_set_id, option_set_name``.
     """
     params = {
-        "fields": (
-            "id,name,programStageDataElements[dataElement[id,name,valueType,optionSet[id,name]]]"
-        ),
+        "fields": ("id,name,programStageDataElements[dataElement[id,name,valueType,optionSet[id,name]]]"),
         "paging": "false",
     }
     if program_uids:
@@ -406,9 +399,7 @@ def get_tracked_entities(
     )
 
     if not all_teis:
-        return pl.DataFrame(
-            schema={"tracked_entity_id": pl.String, "organisation_unit_id": pl.String}
-        )
+        return pl.DataFrame(schema={"tracked_entity_id": pl.String, "organisation_unit_id": pl.String})
 
     df = pl.DataFrame(
         [
@@ -680,9 +671,7 @@ def build_value_decoder(
         .select("data_element_id", "option_set_id", "value_type")
         .unique()
     )
-    de_options_map = {
-        de_id: options.get(os_id, {}) for de_id, os_id, _ in de_to_options.iter_rows()
-    }
+    de_options_map = {de_id: options.get(os_id, {}) for de_id, os_id, _ in de_to_options.iter_rows()}
     multi_de = {de_id for de_id, _, vt in de_to_options.iter_rows() if vt == config.MULTI_TEXT_TYPE}
     return de_options_map, multi_de
 

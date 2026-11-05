@@ -146,9 +146,7 @@ def upsert_events(
         col_list = ", ".join(f'"{c}"' for c in common)
 
         conn.execute(
-            text(
-                f'DELETE FROM "{table}" WHERE "{key}" IN (SELECT DISTINCT "{key}" FROM "{staging}")'
-            )
+            text(f'DELETE FROM "{table}" WHERE "{key}" IN (SELECT DISTINCT "{key}" FROM "{staging}")')
         )
         conn.execute(text(f'INSERT INTO "{table}" ({col_list}) SELECT {col_list} FROM "{staging}"'))
         conn.execute(text(f'DROP TABLE "{staging}"'))

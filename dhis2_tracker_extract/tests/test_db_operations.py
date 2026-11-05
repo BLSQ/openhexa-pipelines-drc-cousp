@@ -2,22 +2,30 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import polars as pl
 from sqlalchemy import create_engine, text
 
 import db_operations
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from sqlalchemy.engine import Engine
 
 
 def _events(ids: list[str], value: str) -> pl.DataFrame:
     return pl.DataFrame({"event_id": ids, "value": [value] * len(ids)})
 
 
-def _rows(engine, table: str) -> list[tuple]:
+def _rows(engine: Engine, table: str) -> list[tuple]:
     with engine.connect() as conn:
         return conn.execute(text(f'SELECT event_id, value FROM "{table}" ORDER BY 1, 2')).all()
 
 
-def test_upsert_par_tranches(tmp_path):
+def test_upsert_par_tranches(tmp_path: Path) -> None:
+    """Staging écrite par tranches, puis remplacement des lignes par event_id."""
     engine = create_engine(f"sqlite:///{tmp_path / 'db.sqlite'}")
     messages: list[str] = []
 

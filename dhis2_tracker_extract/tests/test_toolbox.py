@@ -6,7 +6,10 @@ les jointures d'enrichissement, qui portent la logique métier.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import polars as pl
+import pytest
 
 import toolbox
 
@@ -37,7 +40,8 @@ def _options() -> pl.DataFrame:
     )
 
 
-def test_build_value_decoder_identifie_multi_text():
+def test_build_value_decoder_identifie_multi_text() -> None:
+    """Le décodeur repère les data elements MULTI_TEXT et ignore ceux sans option set."""
     de_map, multi = toolbox.build_value_decoder(_stage_de(), _options())
     assert de_map["de_sexe"]["M"] == "Masculin"
     assert "de_signes" in multi
@@ -46,7 +50,8 @@ def test_build_value_decoder_identifie_multi_text():
     assert "de_temp" not in de_map
 
 
-def test_add_value_norm_decode_simple_et_multi():
+def test_add_value_norm_decode_simple_et_multi() -> None:
+    """value_norm décode les codes simples et multiples, et garde le reste tel quel."""
     de_map, multi = toolbox.build_value_decoder(_stage_de(), _options())
     events = pl.DataFrame(
         {
@@ -58,12 +63,14 @@ def test_add_value_norm_decode_simple_et_multi():
     assert out == ["Masculin", "Fièvre, Diarrhée", "38.5", None]
 
 
-def test_add_value_norm_table_vide():
+def test_add_value_norm_table_vide() -> None:
+    """Une table vide reçoit quand même la colonne value_norm."""
     out = toolbox.add_value_norm(pl.DataFrame(), {}, set())
     assert "value_norm" in out.columns
 
 
-def test_enrich_events_jointures():
+def test_enrich_events_jointures() -> None:
+    """Les jointures ajoutent enrôlement, attributs TEI, libellé DE et niveau géo."""
     events = pl.DataFrame(
         {
             "event_id": ["e1"],
@@ -97,14 +104,14 @@ def test_enrich_events_jointures():
 class _FakeApi:
     """Simule ``tracker.api.get`` : sert ``data[endpoint]`` filtré et paginé."""
 
-    def __init__(self, data: dict[str, list[dict]], id_keys: dict[str, str]):
+    def __init__(self, data: dict[str, list[dict]], id_keys: dict[str, str]) -> None:
         self.data = data
         self.id_keys = id_keys
         self.calls: list[tuple[str, dict]] = []
 
     def get(self, endpoint: str, params: dict) -> dict:
         self.calls.append((endpoint, dict(params)))
-        key = endpoint.split("/")[-1]
+        key = endpoint.rsplit("/", maxsplit=1)[-1]
         items = self.data[endpoint]
         for name in (key, self.id_keys[endpoint]):
             if name in params:
@@ -116,10 +123,10 @@ class _FakeApi:
         return {key: items[(page - 1) * size : page * size], "pager": {"page": page}}
 
 
+@dataclass
 class _FakeTracker:
-    def __init__(self, api: _FakeApi, version: str = "2.41.6"):
-        self.api = api
-        self.version = version
+    api: object
+    version: str = "2.41.6"
 
 
 def _tei(uid: str) -> dict:
@@ -137,8 +144,7 @@ def _fake(n: int, version: str = "2.41.6") -> _FakeTracker:
         {
             "tracker/trackedEntities": [_tei(f"t{i}") for i in range(n)],
             "tracker/enrollments": [
-                {"enrollment": f"e{i}", "enrolledAt": "2026-01-01", "orgUnit": "ou1"}
-                for i in range(n)
+                {"enrollment": f"e{i}", "enrolledAt": "2026-01-01", "orgUnit": "ou1"} for i in range(n)
             ],
         },
         {"tracker/trackedEntities": "trackedEntity", "tracker/enrollments": "enrollment"},
@@ -146,7 +152,8 @@ def _fake(n: int, version: str = "2.41.6") -> _FakeTracker:
     return _FakeTracker(api, version)
 
 
-def test_get_tracked_entities_pagination_complete():
+def test_get_tracked_entities_pagination_complete() -> None:
+    """La pagination s'arrête sur la page incomplète, sans requête vide."""
     tracker = _fake(7)
     df = toolbox.get_tracked_entities(tracker, "P", page_size=3)
     assert df.height == 7
@@ -156,7 +163,8 @@ def test_get_tracked_entities_pagination_complete():
     assert "Sexe" in df.columns
 
 
-def test_get_tracked_entities_filtre_par_uid_et_par_lots(monkeypatch):
+def test_get_tracked_entities_filtre_par_uid_et_par_lots(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Les TEI sont demandés par lots d'UID séparés par des virgules (2.41)."""
     monkeypatch.setattr(toolbox.config, "UID_BATCH_SIZE", 2)
     tracker = _fake(10)
     df = toolbox.get_tracked_entities(tracker, "P", tracked_entity_ids=["t1", "t4", "t8"])
@@ -165,14 +173,16 @@ def test_get_tracked_entities_filtre_par_uid_et_par_lots(monkeypatch):
     assert sent == ["t1,t4", "t8"]
 
 
-def test_get_enrollments_liste_vide_aucun_appel():
+def test_get_enrollments_liste_vide_aucun_appel() -> None:
+    """Une liste d'UID vide ne déclenche aucun appel."""
     tracker = _fake(5)
     df = toolbox.get_enrollments(tracker, "P", enrollment_ids=[])
     assert df.is_empty()
     assert tracker.api.calls == []
 
 
-def test_parametres_avant_2_41():
+def test_parametres_avant_2_41() -> None:
+    """Avant 2.41 : ouMode, filtre au singulier et séparateur point-virgule."""
     tracker = _fake(5, version="2.40.5")
     df = toolbox.get_enrollments(tracker, "P", enrollment_ids=["e2", "e3"])
     params = tracker.api.calls[0][1]
@@ -183,7 +193,8 @@ def test_parametres_avant_2_41():
     assert "orgUnitMode" not in params
 
 
-def test_parametres_a_partir_de_2_41():
+def test_parametres_a_partir_de_2_41() -> None:
+    """À partir de 2.41 : orgUnitMode, filtre au pluriel et séparateur virgule."""
     tracker = _fake(5)
     df = toolbox.get_enrollments(tracker, "P", enrollment_ids=["e2", "e3"])
     params = tracker.api.calls[0][1]
@@ -192,9 +203,11 @@ def test_parametres_a_partir_de_2_41():
     assert params["orgUnitMode"] == "DESCENDANTS"
 
 
-def test_reponse_instances_avant_2_41():
+def test_reponse_instances_avant_2_41() -> None:
+    """Avant 2.41, la liste est lue sous la clé instances."""
+
     class _Api:
-        def get(self, endpoint, params):
+        def get(self, endpoint: str, params: dict) -> dict:
             return {"instances": [{"event": "ev1", "dataValues": []}], "page": 1}
 
     tracker = _FakeTracker(_Api(), version="2.39.3")
@@ -202,30 +215,31 @@ def test_reponse_instances_avant_2_41():
     assert df["event_id"].to_list() == ["ev1"]
 
 
-def test_check_dhis2_version():
-    import pytest
-
+def test_check_dhis2_version() -> None:
+    """Les versions antérieures à 2.38 ou illisibles sont refusées."""
     assert toolbox.check_dhis2_version(_FakeTracker(None, "2.38.0")) == "2.38.0"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="non prise en charge"):
         toolbox.check_dhis2_version(_FakeTracker(None, "2.37.9"))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="non prise en charge"):
         toolbox.check_dhis2_version(_FakeTracker(None, ""))
 
 
-def test_slugify():
+def test_slugify() -> None:
+    """La fonction slugify normalise accents et séparateurs, et tronque à 47 caractères."""
     assert toolbox.slugify("MVE - Fiche Contacts (Été)") == "mve_fiche_contacts_ete"
     assert len(toolbox.slugify("x" * 100)) == 47
 
 
 def _programs_tracker(programs: list[dict]) -> _FakeTracker:
     class _Api:
-        def get(self, endpoint, params):
+        def get(self, endpoint: str, params: dict) -> dict:
             return {"programs": programs}
 
     return _FakeTracker(_Api())
 
 
-def test_get_programs_noms_historiques_et_shortname():
+def test_get_programs_noms_historiques_et_shortname() -> None:
+    """Nom historique de config.PROGRAMS, sinon shortName DHIS2 normalisé."""
     tracker = _programs_tracker(
         [
             {"id": "wDFB7FFlYQM", "name": "x", "programType": "WITH_REGISTRATION"},
@@ -242,9 +256,8 @@ def test_get_programs_noms_historiques_et_shortname():
     assert all(len(name) <= 47 for name in out.values())
 
 
-def test_get_programs_erreurs():
-    import pytest
-
+def test_get_programs_erreurs() -> None:
+    """Un UID introuvable ou un programme événementiel arrête le pipeline."""
     event_program = [{"id": "EV", "name": "Ev", "programType": "WITHOUT_REGISTRATION"}]
     with pytest.raises(ValueError, match="introuvables"):
         toolbox.get_programs(_programs_tracker([]), ["ABSENT"])
@@ -252,7 +265,8 @@ def test_get_programs_erreurs():
         toolbox.get_programs(_programs_tracker(event_program), ["EV"])
 
 
-def test_get_events_pages_schema_fixe_et_fields(monkeypatch):
+def test_get_events_pages_schema_fixe_et_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pages converties à schéma fixe, fields restreints et progression logguée."""
     monkeypatch.setattr(toolbox.config, "LOG_EVERY_PAGES", 1)
     pages = [
         # Page 1 : colonnes deleted / trackedEntity entièrement nulles.
@@ -275,10 +289,10 @@ def test_get_events_pages_schema_fixe_et_fields(monkeypatch):
     ]
 
     class _Api:
-        def __init__(self):
-            self.calls = []
+        def __init__(self) -> None:
+            self.calls: list[dict] = []
 
-        def get(self, endpoint, params):
+        def get(self, endpoint: str, params: dict) -> dict:
             self.calls.append(dict(params))
             return {"events": pages[params["page"] - 1]}
 
@@ -293,12 +307,15 @@ def test_get_events_pages_schema_fixe_et_fields(monkeypatch):
     assert df.schema["occurred_at"] == pl.Datetime
     assert api.calls[0]["fields"] == toolbox.config.EVENT_FIELDS
     assert [c["page"] for c in api.calls] == [1, 2]
-    assert messages and "3 événements" in messages[-1]
+    assert messages
+    assert "3 événements" in messages[-1]
 
 
-def test_get_events_aucun_evenement():
+def test_get_events_aucun_evenement() -> None:
+    """Aucun événement : DataFrame vide."""
+
     class _Api:
-        def get(self, endpoint, params):
+        def get(self, endpoint: str, params: dict) -> dict:
             return {"events": []}
 
     assert toolbox.get_events(_FakeTracker(_Api()), "P").is_empty()
