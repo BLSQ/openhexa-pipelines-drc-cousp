@@ -7,6 +7,7 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 import config
+import polars as pl
 import db_operations
 import toolbox
 from openhexa.sdk import DHIS2Connection, current_run, parameter, pipeline, workspace
@@ -121,6 +122,7 @@ def dhis2_tracker_extract_pipeline(
                 table,
                 step,
                 log,
+                replace=full_refresh and not manual_window,
                 df_stage_de=df_stage_de,
                 de_options_map=de_options_map,
                 multi_de=multi_de,
@@ -147,6 +149,7 @@ def extract_and_upsert(
     table: str,
     step: list[str],
     log: Callable[[str], None],
+    replace: bool = False,
     **extract_kwargs: object,
 ) -> None:
     """Extrait un programme puis upsert le résultat dans sa table.
@@ -168,6 +171,9 @@ def extract_and_upsert(
         Étape en cours (``step[0]``), mise à jour pour le message d'erreur.
     log : Callable[[str], None]
         Journalisation des étapes.
+    replace : bool, optional
+        Remplace le contenu de la table (rechargement complet) au lieu d'un
+        upsert au grain ``event_id``.
     **extract_kwargs : object
         Arguments transmis à :func:`toolbox.extract_tracker`.
     """
@@ -176,10 +182,17 @@ def extract_and_upsert(
         log("aucun événement nouveau/modifié.")
         return
     step[0] = "écriture en base"
-    n_cases = df["tracked_entity_id"].n_unique()
-    n = db_operations.upsert_events(engine, table, df, log=log)
+    flags = [pl.col(f).fill_null(False) for f in config.DELETED_FLAGS if f in df.columns]
+    supprime = pl.any_horizontal(flags) if flags else pl.lit(False)
+    n_supprimees = df.filter(supprime).height
+    n_cases = df.filter(~supprime)["tracked_entity_id"].n_unique()
+    n = db_operations.upsert_events(engine, table, df, log=log, replace=replace)
     current_run.add_database_output(table)
-    log(f"{n} lignes upsertées ({n_cases} cas) -> table {table}")
+    mode = "remplacée" if replace else "mise à jour"
+    log(
+        f"{n} lignes actives écrites ({n_cases} cas), {n_supprimees} lignes supprimées dans "
+        f"DHIS2 écartées -> table {table} {mode}"
+    )
 
 
 def memory_mb() -> tuple[float, float]:

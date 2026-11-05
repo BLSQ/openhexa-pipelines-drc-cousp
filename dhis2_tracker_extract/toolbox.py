@@ -442,8 +442,9 @@ def get_enrollments(
     """Extrait les enrôlements d'un programme (date d'inscription par cas).
 
     Les enrôlements supprimés (soft delete) sont aussi ramenés
-    (``includeDeleted``) pour publier ``enrollment_deleted`` : le pipeline des
-    indicateurs exclut les lignes dont ce drapeau est vrai **ou nul**.
+    (``includeDeleted``) pour renseigner ``enrollment_deleted`` : ce drapeau sert
+    à écarter leurs événements à l'écriture (cf. db_operations.upsert_events),
+    il n'est pas stocké.
 
     Parameters
     ----------
@@ -880,7 +881,7 @@ def extract_tracker(
         .n_unique()
     )
     if n_sans_enrolement:
-        # enrollment_deleted restera nul : ces lignes seront exclues en aval.
+        # enrollment_deleted restera nul : ces lignes sont conservées à l'écriture.
         log(f"{n_sans_enrolement} enrôlement(s) référencé(s) par les événements introuvable(s)")
 
     df_events = add_value_norm(df_events, de_options_map, multi_de)

@@ -28,4 +28,6 @@ MULTI_TEXT_TYPE = "MULTI_TEXT"
 
 UPSERT_KEY = "event_id"
 
+DELETED_FLAGS = ("deleted", "enrollment_deleted")
+
 STATE_TABLE = "dhis2_extract_state"
