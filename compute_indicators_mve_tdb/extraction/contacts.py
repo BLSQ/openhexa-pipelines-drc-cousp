@@ -18,7 +18,7 @@ def load_contacts_events(
     config.DICO_DE_MAPPING_CONTACTS) sans les attributs TEI, répétés sinon sur
     chaque ligne du format long, puis une ligne d'attributs par entité suivie
     (la plus récemment mise à jour). Les événements et enrôlements supprimés
-    (soft delete) sont exclus, un drapeau nul excluant aussi la ligne, comme
+    (soft delete) sont exclus ; un drapeau nul vaut « non supprimé », comme
     dans load_notification_events().
 
     Args:
@@ -53,7 +53,9 @@ def load_contacts_events(
         pl.col("occurred_at").cast(pl.Date, strict=False),
     )
     current_run.log_info(f"Événements de suivi des contacts lus : {events.height} lignes brutes.")
-    events = events.filter((~pl.col("enrollment_deleted")) & (~pl.col("deleted"))).drop(
+    events = events.filter(
+        (~pl.col("enrollment_deleted").fill_null(False)) & (~pl.col("deleted").fill_null(False))
+    ).drop(
         ["enrollment_deleted", "deleted"]
     )
     current_run.log_info(

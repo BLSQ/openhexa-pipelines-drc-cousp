@@ -59,11 +59,14 @@ def load_notification_events(
     current_run.log_info(f"Événements de notification lus : {df.height} lignes brutes.")
     # Événements et enrôlements supprimés dans DHIS2 (soft delete), ainsi que les
     # enrôlements sans numéro Epid ni sexe : ils ne correspondent à aucun cas
-    # exploitable et gonflent les compteurs. Un drapeau de suppression nul exclut
-    # la ligne, comme dans les tables analytiques DHIS2.
+    # exploitable et gonflent les compteurs. Seul un drapeau de suppression
+    # explicitement vrai exclut la ligne : un drapeau nul (colonne non produite
+    # par la version d'extraction qui a écrit la ligne) vaut « non supprimé ».
+    # L'extraction ne stocke de toute façon plus les lignes supprimées : ce
+    # filtre n'est qu'un garde-fou.
     df = df.filter(
-        (~pl.col("enrollment_deleted"))
-        & (~pl.col("deleted"))
+        (~pl.col("enrollment_deleted").fill_null(False))
+        & (~pl.col("deleted").fill_null(False))
         & (pl.col("numero_epid").is_not_null())
         & (pl.col("sexe").is_not_null())
     ).drop(["enrollment_deleted", "deleted"])
