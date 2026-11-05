@@ -50,3 +50,40 @@ def test_upsert_par_tranches(tmp_path: Path) -> None:
         ("e4", "v1"),
         ("e5", "v2"),
     ]
+
+
+def _flagged(ids: list[str], value: str, deleted: list[bool | None]) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "event_id": ids,
+            "value": [value] * len(ids),
+            "deleted": deleted,
+            "enrollment_deleted": [False] * len(ids),
+        },
+        schema_overrides={"deleted": pl.Boolean},
+    )
+
+
+def test_upsert_ecarte_les_lignes_supprimees(tmp_path: Path) -> None:
+    """Les lignes supprimées dans DHIS2 retirent leur event_id sans être stockées."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'db.sqlite'}")
+
+    # Première écriture : e2 (supprimé) n'est pas stocké, un drapeau nul l'est.
+    n = db_operations.upsert_events(engine, "t", _flagged(["e1", "e2", "e3"], "v1", [False, True, None]))
+    assert n == 2
+    assert _rows(engine, "t") == [("e1", "v1"), ("e3", "v1")]
+
+    # e1 supprimé ensuite dans DHIS2 : ses lignes disparaissent de la cible.
+    n = db_operations.upsert_events(engine, "t", _flagged(["e1"], "v2", [True]))
+    assert n == 0
+    assert _rows(engine, "t") == [("e3", "v1")]
+
+
+def test_upsert_replace_vide_la_cible(tmp_path: Path) -> None:
+    """En rechargement complet, les event_id absents du lot (purgés) disparaissent."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'db.sqlite'}")
+    db_operations.upsert_events(engine, "t", _flagged(["e1", "e2"], "v1", [False, False]))
+
+    n = db_operations.upsert_events(engine, "t", _flagged(["e2", "e3"], "v2", [False, True]), replace=True)
+    assert n == 1
+    assert _rows(engine, "t") == [("e2", "v2")]
