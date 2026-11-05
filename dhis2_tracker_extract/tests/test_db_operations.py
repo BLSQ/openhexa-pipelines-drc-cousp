@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import polars as pl
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 
 import db_operations
 
@@ -72,6 +72,8 @@ def test_upsert_ecarte_les_lignes_supprimees(tmp_path: Path) -> None:
     n = db_operations.upsert_events(engine, "t", _flagged(["e1", "e2", "e3"], "v1", [False, True, None]))
     assert n == 2
     assert _rows(engine, "t") == [("e1", "v1"), ("e3", "v1")]
+    # Les drapeaux de suppression ne sont pas écrits dans la cible.
+    assert {c["name"] for c in inspect(engine).get_columns("t")} == {"event_id", "value"}
 
     # e1 supprimé ensuite dans DHIS2 : ses lignes disparaissent de la cible.
     n = db_operations.upsert_events(engine, "t", _flagged(["e1"], "v2", [True]))
@@ -87,3 +89,19 @@ def test_upsert_replace_vide_la_cible(tmp_path: Path) -> None:
     n = db_operations.upsert_events(engine, "t", _flagged(["e2", "e3"], "v2", [False, True]), replace=True)
     assert n == 1
     assert _rows(engine, "t") == [("e2", "v2")]
+
+
+def test_upsert_replace_retire_les_colonnes_obsoletes(tmp_path: Path) -> None:
+    """Le rechargement complet recrée la table : drapeaux et colonnes obsolètes disparaissent."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'db.sqlite'}")
+    with engine.begin() as conn:
+        conn.execute(text('CREATE TABLE "t" (event_id TEXT, value TEXT, deleted BOOLEAN, ancienne TEXT)'))
+        conn.execute(text("INSERT INTO \"t\" VALUES ('e9', 'x', 0, 'y')"))
+
+    # Upsert incrémental : la table garde son schéma, les nouvelles lignes ont deleted nul.
+    db_operations.upsert_events(engine, "t", _flagged(["e1"], "v1", [False]))
+    assert _rows(engine, "t") == [("e1", "v1"), ("e9", "x")]
+
+    db_operations.upsert_events(engine, "t", _flagged(["e1"], "v2", [False]), replace=True)
+    assert {c["name"] for c in inspect(engine).get_columns("t")} == {"event_id", "value"}
+    assert _rows(engine, "t") == [("e1", "v2")]

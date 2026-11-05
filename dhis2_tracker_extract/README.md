@@ -49,7 +49,7 @@ Le mode est déterminé ainsi :
 | Première exécution (pas de filigrane) | aucun (extraction complète) |
 | Exécution suivante | filigrane de la dernière exécution (incrémental) |
 | Fenêtre manuelle (`occurred_after`/`occurred_before`) | aucun (le filigrane n'est ni lu ni écrit) |
-| Rechargement complet (`full_refresh`) | aucun (ré-extraction de tout l'historique, **contenu de la table remplacé**) |
+| Rechargement complet (`full_refresh`) | aucun (ré-extraction de tout l'historique, **table recréée**) |
 
 ## Paramètres
 
@@ -60,7 +60,7 @@ Le mode est déterminé ainsi :
 | Unité d'organisation racine (`org_unit_parent`) | String (widget Org Units) | Non | `ymGeqzoPhN3` | UID de l'org unit dont on extrait les descendants (`DESCENDANTS`) |
 | Événements depuis (`occurred_after`) | String | Non | – | Fenêtre manuelle par date de survenue (`YYYY-MM-DD`). Vide = extraction incrémentale depuis la dernière exécution |
 | Événements jusqu'à (`occurred_before`) | String | Non | – | Borne supérieure de la fenêtre manuelle (`YYYY-MM-DD`, optionnel) |
-| Rechargement complet (`full_refresh`) | Boolean | Non | `False` | Ignore le filigrane, ré-extrait tout l'historique et remplace le contenu de la table |
+| Rechargement complet (`full_refresh`) | Boolean | Non | `False` | Ignore le filigrane, ré-extrait tout l'historique et recrée la table |
 
 > Les dates manuelles sont validées au format `YYYY-MM-DD` ; un format invalide
 > arrête le pipeline avec une erreur explicite. Les programmes sont vérifiés
@@ -119,10 +119,15 @@ apparues côté source sont ajoutées automatiquement à la table cible.
 **Seules les données actives sont stockées** : les lignes d'un événement ou d'un
 enrôlement supprimé dans DHIS2 (`config.DELETED_FLAGS` vrai) retirent les lignes
 de leur `event_id` puis sont écartées avant l'insertion, comme dans les tables
-analytiques DHIS2. En **rechargement complet**, la table est vidée (`TRUNCATE`,
-dans la même transaction) au lieu de ne retirer que les clés du lot : les
-événements purgés de DHIS2, qui ne reviennent plus dans l'API, disparaissent
-aussi. Un rechargement complet interrompu laisse la table intacte.
+analytiques DHIS2. Les drapeaux `deleted` / `enrollment_deleted` ne sont pas
+écrits dans la table.
+
+En **rechargement complet**, la table est **recréée** depuis la staging (dans la
+même transaction) au lieu de ne retirer que les clés du lot : les événements
+purgés de DHIS2, qui ne reviennent plus dans l'API, disparaissent, et le schéma
+repart de la source (colonnes obsolètes des anciennes versions retirées). Un
+rechargement complet interrompu laisse la table intacte. La recréation échoue,
+sans rien modifier, si un objet de la base (vue…) dépend de la table.
 
 La staging est écrite **par tranches** de `config.UPSERT_CHUNK_SIZE` lignes
 (200 000 par défaut) pour borner la mémoire ; la table cible n'est modifiée qu'à
@@ -158,13 +163,12 @@ Une ligne par couple (événement × data element). Colonnes principales :
 | Colonne | Origine | Description |
 |---|---|---|
 | `event_id` | événement | Clé d'upsert |
-| `status`, `deleted` | événement | Statut ; `deleted` vaut toujours `false` (lignes supprimées non stockées), conservé pour compatibilité |
+| `status` | événement | Statut de l'événement |
 | `program_id`, `program_stage_id`, `program_stage_name` | événement / métadonnées | Programme et stage |
 | `tracked_entity_id`, `enrollment_id` | événement | Cas et enrôlement |
 | `organisation_unit_id`, `level_{n}_name` | événement / hiérarchie géo | Org unit et libellés de niveau (province, ZS, AS…) |
 | `occurred_at`, `created_at`, `updated_at` | événement | Horodatages |
 | `enrolled_at`, `enrollment_org_unit` | enrôlement | Date et org unit d'inscription |
-| `enrollment_deleted` | enrôlement | Toujours `false` (lignes supprimées non stockées), conservé pour compatibilité ; nul si l'enrôlement est introuvable |
 | `data_element_id`, `data_element_name`, `value_type`, `option_set_id` | événement / métadonnées | Data element |
 | `value` | événement | Valeur brute (code stocké) |
 | `value_norm` | calculé | Valeur décodée (libellé d'option ; texte/date/numérique conservés tels quels) |
