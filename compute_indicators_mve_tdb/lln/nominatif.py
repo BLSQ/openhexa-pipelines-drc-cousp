@@ -67,6 +67,29 @@ def nommer_colonnes(
     return noms
 
 
+def dedoublonner(df: pl.DataFrame, cle: str) -> pl.DataFrame:
+    """Garde une ligne par valeur de ``cle`` (la dernière), en signalant les doublons.
+
+    Args:
+        df: Table à joindre à la LLN.
+        cle: Clé de jointure.
+
+    Returns:
+        ``df`` sans clé répétée.
+    """
+    doublons = df.height - df.get_column(cle).n_unique()
+    if doublons == 0:
+        return df
+    exemples = (
+        df.group_by(cle).len().filter(pl.col("len") > 1).get_column(cle).head(5).to_list()
+    )
+    current_run.log_warning(
+        f"LLN nominative : {doublons} ligne(s) en double sur {cle} côté valeurs, "
+        f"dédoublonnées (ex. {exemples})."
+    )
+    return df.unique(subset=cle, keep="last", maintain_order=True)
+
+
 def ajouter_colonnes_nominatives(
     lln: pl.DataFrame,
     valeurs_de: pl.DataFrame,
@@ -101,6 +124,8 @@ def ajouter_colonnes_nominatives(
 
     noms_de = {uid: noms[uid] for uid in uids}
     noms_tei = {att: noms[f"tei:{att}"] for att in attributs}
+    valeurs_de = dedoublonner(valeurs_de, cle_de)
+    tei = dedoublonner(tei, "tracked_entity_id")
     nominatif = lln.join(valeurs_de.rename(noms_de), on=cle_de, how="left").join(
         tei.rename(noms_tei), on="tracked_entity_id", how="left"
     )
