@@ -119,6 +119,7 @@ EXPR_TEI = [
     "date_debut_symptomes",
     "date_notification",
     "lien_epidemiologique",
+    "source_alerte",
 ]
 
 EXPR_TEI_CONTACTS = [
@@ -198,6 +199,9 @@ DICO_TEI = {
     "MVE - DDS (Date de début des symptômes)": "date_debut_symptomes",
     "MPOX-N-Date et heure de notification de l'alerte": "date_notification",
     "MVE - Lien épidémiologique": "lien_epidemiologique",
+    # Code option set « MVE-Source Alerte » (LoL8f3VmdPU) : CV, COM, CT, ESS, NV,
+    # RECO, SBC, MO, RA, AU, PoE (publié brut, comme profession)
+    "MVE-N-Source de l'alerte": "source_alerte",
 }
 
 
@@ -736,6 +740,7 @@ COLS_LLN_TEI = [
     "profession",
     "secteur",
     "lien_epidemiologique",
+    "source_alerte",
     "date_notification",
     "date_debut_symptomes",
 ]
