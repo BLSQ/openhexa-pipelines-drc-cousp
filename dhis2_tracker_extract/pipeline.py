@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import resource
-import sys
-from collections.abc import Callable
 from datetime import datetime, UTC
-from pathlib import Path
 
 import config
-import polars as pl
 import db_operations
+import programme
 import toolbox
+from isolation import ProcessusInterrompuError, executer_isole
+from journal import log_step
 from openhexa.sdk import DHIS2Connection, current_run, parameter, pipeline, workspace
 from openhexa.sdk.pipelines.parameter import DHIS2Widget
 from openhexa.toolbox.dhis2 import DHIS2
@@ -95,6 +93,7 @@ def dhis2_tracker_extract_pipeline(
     df_options = toolbox.get_option_sets(tracker)
     df_org_levels = toolbox.get_org_unit_levels(tracker)
     de_options_map, multi_de = toolbox.build_value_decoder(df_stage_de, df_options)
+    del df_options
     log_step(f"Métadonnées : {df_stage_de.height} data elements, {df_org_levels.height} org units")
 
     for program_uid, short_name in programs.items():
@@ -108,20 +107,17 @@ def dhis2_tracker_extract_pipeline(
             if manual_window
             else ("complet" if updated_after is None else f"incrémental depuis {updated_after}")
         )
-        log_step(f"Extraction {short_name} ({program_uid}) — {mode}…")
+        log_step(f"Extraction {short_name} ({program_uid}) — {mode}, dans un processus dédié…")
 
-        def log(msg: str, short_name: str = short_name) -> None:
-            log_step(f"{short_name} : {msg}")
-
-        step = ["extraction"]
+        # Un processus neuf par programme : sa mémoire est entièrement rendue au
+        # système à la fin, le programme suivant repart de zéro.
         try:
-            extract_and_upsert(
-                tracker,
-                engine,
+            resume = executer_isole(
+                programme.extraire_programme,
+                dhis_con,
+                workspace.database_url,
                 program_uid,
-                table,
-                step,
-                log,
+                short_name,
                 replace=full_refresh and not manual_window,
                 df_stage_de=df_stage_de,
                 de_options_map=de_options_map,
@@ -132,105 +128,15 @@ def dhis2_tracker_extract_pipeline(
                 occurred_before=occurred_before if manual_window else None,
                 updated_after=updated_after,
             )
-        except Exception as exc:
-            current_run.log_error(
-                f"{short_name} : échec pendant l'{step[0]} — {type(exc).__name__}: {str(exc)[:500]}"
-            )
+        except ProcessusInterrompuError as exc:
+            current_run.log_error(f"{short_name} : {exc}")
             raise
+        if resume["lignes"] or full_refresh:
+            current_run.add_database_output(table)
+        log_step(f"{short_name} : processus terminé (pic {resume['pic_mo']:.0f} Mo), mémoire rendue")
 
         if not manual_window:
             db_operations.write_watermark(engine, short_name, run_started_at)
-
-
-def extract_and_upsert(
-    tracker: DHIS2,
-    engine: Engine,
-    program_uid: str,
-    table: str,
-    step: list[str],
-    log: Callable[[str], None],
-    replace: bool = False,
-    **extract_kwargs: object,
-) -> None:
-    """Extrait un programme puis upsert le résultat dans sa table.
-
-    La table extraite est locale à cette fonction : elle est libérée à son
-    retour, avant le programme suivant (deux tables ne coexistent pas).
-
-    Parameters
-    ----------
-    tracker : DHIS2
-        Client DHIS2 authentifié.
-    engine : Engine
-        Moteur SQLAlchemy de la base du workspace.
-    program_uid : str
-        UID du programme tracker.
-    table : str
-        Table cible.
-    step : list[str]
-        Étape en cours (``step[0]``), mise à jour pour le message d'erreur.
-    log : Callable[[str], None]
-        Journalisation des étapes.
-    replace : bool, optional
-        Remplace le contenu de la table (rechargement complet) au lieu d'un
-        upsert au grain ``event_id``.
-    **extract_kwargs : object
-        Arguments transmis à :func:`toolbox.extract_tracker`.
-    """
-    df = toolbox.extract_tracker(tracker, program_uid, log=log, **extract_kwargs)
-    if df.is_empty():
-        log("aucun événement nouveau/modifié.")
-        return
-    step[0] = "écriture en base"
-    flags = [pl.col(f).fill_null(False) for f in config.DELETED_FLAGS if f in df.columns]
-    supprime = pl.any_horizontal(flags) if flags else pl.lit(False)
-    n_supprimees = df.filter(supprime).height
-    n_cases = df.filter(~supprime)["tracked_entity_id"].n_unique()
-    n = db_operations.upsert_events(engine, table, df, log=log, replace=replace)
-    current_run.add_database_output(table)
-    mode = "remplacée" if replace else "mise à jour"
-    log(
-        f"{n} lignes actives écrites ({n_cases} cas), {n_supprimees} lignes supprimées dans "
-        f"DHIS2 écartées -> table {table} {mode}"
-    )
-
-
-def memory_mb() -> tuple[float, float]:
-    """Mémoire du processus : résidente actuelle et pic, en Mo.
-
-    La valeur courante vient de ``/proc/self/statm`` (Linux, cas des pods
-    OpenHexa) ; ailleurs, on retombe sur le pic.
-
-    Returns
-    -------
-    tuple[float, float]
-        ``(rss_mb, peak_mb)``.
-    """
-    peak_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # ru_maxrss est en octets sous macOS, en Ko sous Linux.
-    peak = peak_kb / 1024 / (1024 if sys.platform == "darwin" else 1)
-    try:
-        resident_pages = int(Path("/proc/self/statm").read_text(encoding="ascii").split()[1])
-        rss = resident_pages * resource.getpagesize() / 1024**2
-    except OSError:
-        rss = peak
-    return rss, peak
-
-
-def log_step(msg: str) -> None:
-    """Journalise une étape avec la mémoire courante et le pic du processus.
-
-    En cas d'arrêt brutal (dépassement de la limite mémoire du pod, qui ne
-    laisse aucune trace Python), le dernier message situe l'étape et la mémoire
-    atteinte.
-
-    Parameters
-    ----------
-    msg : str
-        Message d'étape.
-    """
-    rss, peak = memory_mb()
-    current_run.log_info(f"{msg} [RAM {rss:.0f} Mo, pic {peak:.0f} Mo]")
 
 
 def incremental_watermark(

@@ -143,7 +143,17 @@ longues) est le cas le plus exigeant en mémoire. Pour le tenir :
   DataFrame puis libérée, et seuls les champs utiles sont demandés
   (`config.EVENT_FIELDS`, `dataValues[dataElement,value]`) ;
 - l'écriture en base se fait par tranches (ci-dessus) ;
-- chaque programme est libéré avant de passer au suivant.
+- **chaque programme tourne dans son propre processus** (`isolation.executer_isole`,
+  démarrage `spawn`), détruit à la fin : toute sa mémoire est rendue au
+  système, et le programme suivant repart de zéro au lieu d'hériter de la
+  mémoire que Python et polars gardent réservée. Le pic d'un run est donc celui
+  du plus gros programme, pas leur cumul. Les `@task` du SDK ne conviennent pas
+  ici : leur `Pool` réutilise ses processus d'une tâche à l'autre, et un
+  processus tué y bloque le run jusqu'au timeout.
+
+Si le processus d'un programme est tué (dépassement de la limite mémoire du
+pod), le pipeline s'arrête aussitôt avec un message d'erreur explicite au lieu
+de rester bloqué ; les messages `[RAM …]` sont ceux du processus du programme.
 
 Chaque étape est journalisée avec la mémoire du processus, par exemple
 `mve_notification : Événements : 3340122 lignes (…) [RAM 2100 Mo, pic 2400 Mo]`.
@@ -211,7 +221,10 @@ flowchart TD
 
 | Fichier | Rôle |
 |---|---|
-| `pipeline.py` | Point d'entrée OpenHexa : paramètres, orchestration, logique incrémentale |
+| `pipeline.py` | Point d'entrée OpenHexa : paramètres, métadonnées, orchestration, logique incrémentale |
+| `programme.py` | Extraction et écriture d'un programme, exécutées dans un processus dédié |
+| `isolation.py` | Exécution d'une fonction dans un processus neuf (mémoire rendue, arrêt brutal signalé) |
+| `journal.py` | Journalisation des étapes avec la mémoire du processus |
 | `toolbox.py` | Extraction et enrichissement DHIS2 (événements, enrôlements, TEI, métadonnées, décodage) |
 | `db_operations.py` | Filigrane (lecture/écriture) et upsert au grain `event_id` |
 | `config.py` | Constantes : programmes par défaut, org unit racine, tailles de page, de lot d'UID et de tranche d'upsert, champs des événements, version DHIS2 minimale, clés |

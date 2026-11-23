@@ -10,6 +10,7 @@ from datetime import datetime
 
 import pytest
 
+import journal
 import pipeline
 
 
@@ -63,6 +64,6 @@ def test_validate_date_rejette_format_invalide() -> None:
 
 def test_memory_mb_positif() -> None:
     """La mémoire courante et le pic sont mesurés."""
-    rss, peak = pipeline.memory_mb()
+    rss, peak = journal.memory_mb()
     assert rss > 0
     assert peak > 0
